@@ -58,6 +58,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   padding-block: 18px 22px;
 }
 header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+button.brand { background: none; border: 0; padding: 0; text-align: left; }
 .brand { font-family: var(--f-display); font-size: 1.55rem; display: flex; align-items: baseline; gap: 10px; }
 .brand small { font-family: var(--f-mono); font-size: .68rem; color: var(--mist); letter-spacing: .14em; text-transform: uppercase; }
 .top-right { display: flex; align-items: center; gap: 14px; }
@@ -242,9 +243,10 @@ footer.foot kbd { font-family: var(--f-mono); border: 1px solid var(--ink-3); bo
 <canvas id="sky" aria-hidden="true"></canvas>
 <div class="app">
   <header class="top">
-    <div class="brand">Le Devin <small>lecteur de pensées</small></div>
+    <button class="brand" id="brand" type="button" title="Revenir à l'accueil">Le Devin <small>lecteur de pensées</small></button>
     <div class="top-right">
       <span class="stats" id="stats"></span>
+      <button class="pill" id="homeTop" type="button" hidden>Changer de thème</button>
       <button class="pill" id="sound" type="button" aria-pressed="true">Son : activé</button>
     </div>
   </header>
@@ -873,7 +875,8 @@ function thinkThenNext() {
   document.getElementById("card").classList.add("busy");
   orb.mood = "think";
   say(pick(["Hmm…", "Voyons voir…", "Je consulte les étoiles…", "Intéressant…", "Laisse-moi réfléchir…"]));
-  setTimeout(() => { busy = false; next(); }, reduceMotion ? 120 : 520);
+  const g = game;
+  setTimeout(() => { if (game !== g) return; busy = false; next(); }, reduceMotion ? 120 : 520);
 }
 function undo() {
   if (screen !== "question" || busy || !game.answers.length) return;
@@ -894,7 +897,8 @@ function wrongGuess() {
   sfx("wrong");
   guessing = null;
   if (game.guesses >= MAX_GUESSES) return lose();
-  setTimeout(next, reduceMotion ? 0 : 450);
+  const g = game;
+  setTimeout(() => { if (game === g) next(); }, reduceMotion ? 0 : 450);
   say(pick(["Ah ! Vraiment ? Je continue.", "Raté… mais je n'ai pas dit mon dernier mot.", "Tu m'étonnes. Encore quelques questions."]));
 }
 function win() {
@@ -1068,6 +1072,16 @@ function updateReverse(fresh) {
   renderNotebook(ranked(post, 6).map(i => [post[i], i]));
 }
 
+// Retour à l'accueil pour choisir un autre thème (abandonne la partie en cours)
+function goHome() {
+  if (screen === "intro") return;
+  // la partie abandonnée ne doit plus rien déclencher (réflexion en cours, proposition suivante)
+  game = null; busy = false; current = null; guessing = null;
+  screen = "intro"; orb.mood = "idle"; orb.conf = 0.04;
+  sfx("tick");
+  render();
+}
+
 /* ---------- Rendu ---------- */
 const TXT = {
   personnage: {
@@ -1097,6 +1111,8 @@ const TXT = {
 };
 const T = () => TXT[mode];
 const $ = id => document.getElementById(id);
+$("brand").onclick = goHome;
+$("homeTop").onclick = goHome;
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -1144,6 +1160,7 @@ function render() {
   clearInterval(typer); clearInterval(tickerTimer);
   $("stage").classList.toggle("solo", screen === "intro");
   $("notebook").hidden = screen === "intro";
+  $("homeTop").hidden = screen === "intro";
   const n = game ? game.answers.length : 0;
   let html = "";
 
@@ -1200,7 +1217,7 @@ function render() {
       ${medal(guessing)}
       <h1>${esc(guessing.name)}</h1>
       <p class="lede">Je retiens tes réponses : la prochaine fois, je le reconnaîtrai encore plus vite.</p>
-      <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button></div>`;
+      <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button><button class="btn" id="home" type="button">Changer de thème</button></div>`;
     say(pick(["Je le savais !", "Trop facile. Encore une ?", "Personne n'échappe au Devin."]));
   } else if (screen === "lose") {
     const rejected = [...game.rejected];
@@ -1214,7 +1231,7 @@ function render() {
         <input id="who" placeholder="${T().teachPh}" required>
         <label id="suggLabel">${sugg.length ? "C'était peut-être l'un d'eux ?" : ""}</label>
         <div class="sugg" id="sugg">${chips(sugg)}</div>
-        <div class="row" style="justify-content:flex-start"><button class="btn primary" type="submit">Lui apprendre</button><button class="btn ghost" id="again" type="button">Rejouer sans apprendre</button></div>
+        <div class="row" style="justify-content:flex-start"><button class="btn primary" type="submit">Lui apprendre</button><button class="btn ghost" id="again" type="button">Rejouer sans apprendre</button><button class="btn ghost" id="home" type="button">Changer de thème</button></div>
       </form>`;
     say(pick(["Je donne ma langue au chat…", "Impossible ! Qui était-ce ?", "Tu m'as battu. Pour cette fois."]));
   } else if (screen === "reverse") {
@@ -1244,7 +1261,7 @@ function render() {
       ${medal(c)}
       <h1>${esc(c.name)}</h1>
       <p class="lede">${esc(c.desc)}</p>
-      <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button><button class="btn" id="home" type="button">Accueil</button></div>`;
+      <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button><button class="btn" id="home" type="button">Changer de thème</button></div>`;
     say(game.found ? pick(["Bravo, tu m'as démasqué !", "Impressionnant. Tu lis dans MES pensées ?", "Bien joué !"]) : pick(["Hé hé, trop fort pour toi ?", "La prochaine fois, peut-être !"]));
   } else if (screen === "taught") {
     html = `
@@ -1252,7 +1269,7 @@ function render() {
       ${medal(guessing)}
       <h1>${esc(guessing.name)}</h1>
       <p class="lede">C'est noté. Rejoue avec ${T().same} pour voir si je l'ai bien compris.</p>
-      <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button></div>`;
+      <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button><button class="btn" id="home" type="button">Changer de thème</button></div>`;
     say("Merci ! Je ne l'oublierai pas.");
   }
   card.innerHTML = html;
@@ -1272,7 +1289,7 @@ function bind() {
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
   on("start", start);
   on("giveup", reveal);
-  on("home", () => { screen = "intro"; orb.mood = "idle"; orb.conf = 0.04; render(); });
+  on("home", goHome);
   on("undo", undo);
   on("yes", win);
   on("no", wrongGuess);
