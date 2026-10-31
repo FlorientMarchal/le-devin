@@ -684,9 +684,9 @@ let who = mem.who === "toi" ? "toi" : "devin";
 const start = () => (who === "toi" ? newReverse() : newGame());
 
 function newReverse() {
-  // le secret : une fiche faite main (des célébrités qu'on connaît ici) ou l'une des 500 personnalités les plus connues
-  const handmade = mode === "chose" ? CHARS.length : PERSONNAGES.length;
-  const pool = byFame().filter(i => !CHARS[i].t.proche && !CHARS[i].custom).filter((i, rank) => i < handmade || rank < 500);
+  // le secret : uniquement les fiches faites main, des célébrités et personnages connus de tous
+  const handmade = mode === "chose" ? CHOSES.length : PERSONNAGES.length;
+  const pool = CHARS.map((_, i) => i).filter(i => i < handmade && !CHARS[i].t.proche);
   game = { reverse: true, secret: pick(pool), answers: [], rejected: new Set(), guesses: 0, top: 0, last: null };
   screen = "reverse"; orb.mood = "sure"; orb.conf = 0.04;
   veiled = true; $("veil").textContent = "Afficher";
