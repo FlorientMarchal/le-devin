@@ -80,6 +80,49 @@ const SYNONYMES = {
     oscar: "oscar oscars",
     nobel: "nobel"
   },
+  oeuvre: {
+    film: "film films cinema long metrage",
+    serie: "serie series saison saisons episode episodes",
+    animation: "animation anime dessin cartoon",
+    anime: "anime animes japonaise",
+    comedie: "comedie drole marrant rigolo humour comique",
+    action: "action baston combats explosions",
+    horreur: "horreur peur flippant effrayant terrifiant",
+    sf: "science fiction sf futur futuriste espace robots extraterrestres aliens",
+    fantastique: "fantastique magie magique sorcier dragons",
+    drame: "drame triste dramatique",
+    romance: "romance amour romantique love",
+    thriller: "thriller suspense",
+    policier: "policier enquete crime crimes flic meurtre detective",
+    guerre: "guerre soldats",
+    western: "western cowboy cowboys",
+    musical: "musical chansons chante",
+    aventure: "aventure",
+    historique: "historique epoque",
+    biopic: "biopic vraie histoire vie",
+    enfants: "enfants famille gamins",
+    superheros: "super heros superheros",
+    ado: "ado ados adolescents lycee",
+    saga: "saga suite suites trilogie",
+    adaptlivre: "livre roman",
+    adaptbd: "bd comics manga",
+    adaptjeu: "jeu video",
+    netflix: "netflix",
+    hbo: "hbo",
+    disneyplus: "disney plus",
+    canalplus: "canal",
+    oscar: "oscar oscars",
+    palme: "palme cannes",
+    cesar: "cesar",
+    longue: "longue saisons",
+    terminee: "finie terminee fini",
+    americain: "americain americaine usa hollywood",
+    francais: "francais francaise france",
+    anglais: "anglais anglaise britannique",
+    japon: "japonais japonaise japon",
+    coree: "coreen coreenne coree",
+    medical: "hopital medecin docteur medical"
+  },
   chose: {
     animal: "animal animaux bete bestiole",
     mangeable: "mange manger mangeable comestible nourriture aliment bouffe boit boire",
@@ -136,7 +179,7 @@ const SYNONYMES = {
 const STOP = new Set(("est ce que qu il ils elle elles un une le la les des du de d l a au aux ton ta tes son sa ses personnage perso " +
   "chose c ca cela se on en dans pour avec par sur t y ou et plus tres souvent connu connue connus etre avoir fait faire ete " +
   "vient cet cette quelqu quelque qui quoi lui leur leurs s n ne pas tu te toi mon ma je j me mes question dis dit si oui non " +
-  "joue jouer joues ete deja tout toute tous peut peux est-ce estce").split(" "));
+  "joue jouer joues ete deja tout toute tous peut peux est-ce estce parle parler parlent y a").split(" "));
 
 const plain = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 function stem(w) {

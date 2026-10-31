@@ -273,6 +273,8 @@ footer.foot kbd { font-family: var(--f-mono); border: 1px solid var(--ink-3); bo
 <script src="personnages.js"></script>
 <script src="wikidata.js"></script>
 <script src="choses.js"></script>
+<script src="oeuvres.js"></script>
+<script src="oeuvres-data.js"></script>
 <script src="comprendre.js"></script>
 <script>
 /* ---------- Données ---------- */
@@ -298,6 +300,7 @@ const DEFAULTS = {};
 for (const [kind, d] of Object.entries(WIKI_DATA.defaults)) {
   DEFAULTS[kind] = { zero: new Set(d.zero.split(" ")), soft: new Set(d.soft.split(" ")) };
 }
+if (typeof OEUVRES_DEFAULTS !== "undefined") DEFAULTS.o = { zero: new Set(OEUVRES_DEFAULTS.zero.split(" ")), soft: new Set(OEUVRES_DEFAULTS.soft.split(" ")) };
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 const words = s => s.split(" ");
 
@@ -383,9 +386,9 @@ function choiceGroup(id, text, cond, keys, labels, others, noneLabel, noneValue 
     const set = {};
     if (others !== null) for (const o of keys) if (o !== k) set[o] = others;
     set[k] = 1;
-    return { label: labels[n], set };
+    return { label: labels[n], def: { [k]: 1 }, set };
   });
-  if (noneLabel) options.push({ label: noneLabel, set: Object.fromEntries(keys.map(k => [k, noneValue])) });
+  if (noneLabel) options.push({ label: noneLabel, def: Object.fromEntries(keys.map(k => [k, 0])), set: Object.fromEntries(keys.map(k => [k, noneValue])) });
   return { id, text, cond, options };
 }
 const CHOICES_PERSONNAGE = [
@@ -457,6 +460,52 @@ const CHOICES_CHOSE = [
     ["Métal", "Bois", "Plastique", "Verre ou céramique", "Tissu", "Papier ou carton"], 0.2, "Autre", 0.2)
 ];
 
+const AFTER = words("apres1970 apres1980 apres1990 apres2000 apres2010 apres2020");
+const LOGIC_OEUVRE = {
+  pair: [["film", "serie"]],
+  chains: [AFTER],
+  implies: [],
+  oneOf: [words("francais americain anglais japon coree espagne italie inde allemagne canada"),
+    words("marvel dc starwars harrypotter bond tolkien pokemon"), words("netflix hbo disneyplus canalplus")],
+  needs: Object.assign(
+    Object.fromEntries(words("longue terminee minis netflix hbo disneyplus canalplus").map(k => [k, ["serie"]])),
+    Object.fromEntries(Object.keys(REALISATEURS).map(k => [k, ["film"]])),
+    { anime: ["animation"], pixar: ["animation"], ghibli: ["animation"], oscarfilm: ["oscar"], palme: ["film"], cesar: ["film"] }
+  ),
+  notIfNo: {},
+  notIfYes: {}
+};
+const CHOICES_OEUVRE = [
+  { id: "type", text: "Qu'est-ce que c'est ?", cond: {}, options: [
+    { label: "Un film", set: { film: 1, serie: 0, animation: 0 } },
+    { label: "Un film d'animation", set: { film: 1, serie: 0, animation: 1 } },
+    { label: "Une série", set: { serie: 1, film: 0, animation: 0 } },
+    { label: "Une série animée", set: { serie: 1, film: 0, animation: 1 } },
+    { label: "Un anime japonais", set: { anime: 1, animation: 1, japon: 1 } }
+  ] },
+  choiceGroup("genre", "Quel est son genre principal ?", {},
+    words("comedie action horreur sf fantastique drame romance thriller policier guerre western musical aventure superheros biopic"),
+    ["Comédie", "Action", "Horreur", "Science-fiction", "Fantastique", "Drame", "Romance", "Thriller", "Policier", "Guerre", "Western", "Comédie musicale", "Aventure", "Super-héros", "Vie d'une vraie personne"],
+    0.35, "Autre", 0.25),
+  { id: "epoque", text: "Quand est-il sorti ?", cond: {}, options: [
+    { label: "Avant 1970", set: { apres1970: 0 } },
+    { label: "Années 70", set: { apres1970: 1, apres1980: 0 } },
+    { label: "Années 80", set: { apres1980: 1, apres1990: 0 } },
+    { label: "Années 90", set: { apres1990: 1, apres2000: 0 } },
+    { label: "Années 2000", set: { apres2000: 1, apres2010: 0 } },
+    { label: "Années 2010", set: { apres2010: 1, apres2020: 0 } },
+    { label: "2020 ou après", set: { apres2020: 1 } }
+  ] },
+  choiceGroup("pays", "De quel pays vient-il ?", {}, words("francais americain anglais japon coree"),
+    ["France", "États-Unis", "Royaume-Uni", "Japon", "Corée du Sud"], 0, "Un autre pays"),
+  choiceGroup("univers", "Fait-il partie d'un de ces univers ?", {}, words("marvel dc starwars harrypotter bond tolkien pokemon disney pixar ghibli"),
+    ["Marvel", "DC", "Star Wars", "Harry Potter", "James Bond", "Seigneur des anneaux", "Pokémon", "Disney", "Pixar", "Ghibli"], 0, "Aucun de ceux-là"),
+  choiceGroup("realisateur", "Qui l'a réalisé ?", { yes: ["film"] }, Object.keys(REALISATEURS), Object.values(REALISATEURS), 0, "Quelqu'un d'autre"),
+  choiceGroup("acteur", "Lequel de ces acteurs joue dedans ?", {}, Object.keys(ACTEURS), Object.values(ACTEURS), 0.3, "Aucun de ceux-là"),
+  choiceGroup("plateforme", "Sur quelle plateforme est-elle née ?", { yes: ["serie"] }, words("netflix hbo disneyplus canalplus"),
+    ["Netflix", "HBO", "Disney+", "Canal+"], 0, "Une chaîne de télé ou autre")
+];
+
 const MODES = {
   personnage: {
     questions: QUESTIONS,
@@ -483,6 +532,24 @@ const MODES = {
         for (const k of NEW_KEYS) if (!(k in t) && w[k]) t[k] = w[k];
       }
       return { name, desc, t, custom: !!custom, sl: extra ? extra[0] : t.proche ? 120 : 40 };
+    }
+  },
+  oeuvre: {
+    questions: OEUVRES_QUESTIONS,
+    logic: LOGIC_OEUVRE,
+    choices: CHOICES_OEUVRE,
+    universes: [
+      ["film", "Films"], ["serie", "Séries"], ["animation", "Animation"], ["anime", "Anime"], ["superheros", "Super-héros"],
+      ["comedie", "Comédies"], ["horreur", "Horreur"], ["sf", "Science-fiction"], ["francais", "Français"]
+    ],
+    labels: [["anime", "Anime"], ["animation", "Animation"], ["serie", "Série"], ["film", "Film"]],
+    items() {
+      return (typeof OEUVRES_DATA !== "undefined" ? OEUVRES_DATA : []).map(([name, desc, sl, tags]) =>
+        ({ name, desc: cap(desc) || "Film ou série", t: applyTags({}, tags, OEUVRES_IMPLIQUE), sl, kind: "o" }));
+    },
+    parse(s, custom) {
+      const [name, desc, tags = ""] = s.split("|");
+      return { name, desc, t: applyTags({}, tags, OEUVRES_IMPLIQUE), custom: !!custom, sl: 40 };
     }
   },
   chose: {
@@ -515,13 +582,14 @@ const mem = loadMem();
 if (mem.sound === undefined) mem.sound = true;
 if (!mem.chose) mem.chose = { obs: {}, plays: {}, custom: {} };
 // ce que le Devin a appris, rangé par mode (les personnages restent à la racine pour garder les anciennes parties)
-const learned = () => (mode === "chose" ? mem.chose : mem);
+if (!mem.oeuvre) mem.oeuvre = { obs: {}, plays: {}, custom: {} };
+const learned = () => (mode === "personnage" ? mem : mem[mode]);
 
 /* ---------- Moteur bayésien ---------- */
 const EPS = 0.05;
 const FAMOUS_BOOST = 0.4;
 const SOFT = 0.12;    // trait que Wikidata aurait probablement mentionné s'il était vrai
-let mode = mem.mode === "chose" ? "chose" : "personnage";
+let mode = ["chose", "oeuvre"].includes(mem.mode) ? mem.mode : "personnage";
 let MODE, QS, KEYS, A, CHARS, BY_NAME, M, PRIOR;
 const built = {};
 
@@ -611,13 +679,22 @@ function allowed(a, k) {
 
 function posterior() {
   const N = CHARS.length, logs = new Float64Array(N);
-  const ans = [...known()].map(([attr, w]) => [KEYS.indexOf(attr), w]).filter(([j]) => j >= 0);
+  // réponses oui/non (et leurs déductions) ; une question à choix compte par la probabilité de l'option choisie
+  const binary = new Map(), chosen = [];
+  for (const a of game.answers) {
+    if (a.attr.startsWith("choice:")) { if (a.choice != null) chosen.push([choiceOptions(groupOf(a.attr)), a.choice]); continue; }
+    binary.set(a.attr, a.w);
+    for (const d of a.inferred || []) if (!binary.has(d.attr)) binary.set(d.attr, d.w);
+  }
+  const ans = [...binary].map(([attr, w]) => [KEYS.indexOf(attr), w]).filter(([j]) => j >= 0);
+  const buf = new Float64Array(32);
   let m = -Infinity;
   for (let i = 0; i < N; i++) {
     if (game.rejected.has(CHARS[i].name)) { logs[i] = -Infinity; continue; }
     let l = PRIOR[i];
     const row = i * A;
     for (const [j, w] of ans) { const p = M[row + j]; l += Math.log(w * p + (1 - w) * (1 - p)); }
+    for (const [opts, o] of chosen) { const tot = optionScores(opts, row, buf); l += Math.log(buf[o] / tot); }
     logs[i] = l;
     if (l > m) m = l;
   }
@@ -675,13 +752,7 @@ function scoreQuestions(post) {
     const opts = choiceOptions(g);
     const P = new Float64Array(opts.length), SL = new Float64Array(opts.length), L = new Float64Array(opts.length);
     for (let x = 0; x < live.length; x++) {
-      const row = live[x] * A;
-      let tot = 0;
-      for (let o = 0; o < opts.length; o++) {
-        let l = 1;
-        for (const [j, w] of opts[o].cols) { const p = M[row + j]; l *= w * p + (1 - w) * (1 - p); }
-        L[o] = l; tot += l;
-      }
+      const tot = optionScores(opts, live[x] * A, L);
       for (let o = 0; o < opts.length; o++) {
         const y = q[x] * L[o] / tot;
         P[o] += y;
@@ -697,6 +768,15 @@ function scoreQuestions(post) {
 }
 // options d'une question à choix, complétées par les déductions et traduites en colonnes de la matrice
 const choiceCache = {};
+function optionScores(opts, row, out) {
+  let tot = 0;
+  for (let o = 0; o < opts.length; o++) {
+    let l = 1;
+    for (const [j, w] of opts[o].cols) { const p = M[row + j]; l *= w * p + (1 - w) * (1 - p); }
+    out[o] = l; tot += l;
+  }
+  return tot;
+}
 function expandSet(set) {
   const full = { ...set };
   for (const [a, w] of Object.entries(set)) for (const d of inferFrom(a, w)) if (!(d.attr in full)) full[d.attr] = d.w;
@@ -705,9 +785,11 @@ function expandSet(set) {
 function choiceOptions(g) {
   const key = mode + ":" + g.id;
   if (!choiceCache[key]) choiceCache[key] = g.options.map(o => {
-    // une option choisie tranche plusieurs traits d'un coup : on reste tolérant (0,92 / 0,08) en cas d'erreur du joueur
-    const set = Object.fromEntries(Object.entries(expandSet(o.set)).map(([k, w]) => [k, Math.min(0.92, Math.max(0.08, w))]));
-    return { label: o.label, set, cols: Object.entries(set).map(([a, w]) => [KEYS.indexOf(a), w]).filter(([j]) => j >= 0) };
+    // « cols » : le critère qui définit l'option, tolérant (0,92 / 0,08) en cas d'erreur du joueur ;
+    // « set » : tout ce qu'on en déduit pour ne pas reposer de questions déjà tranchées
+    const def = o.def || o.set;
+    const cols = Object.entries(def).map(([a, w]) => [KEYS.indexOf(a), Math.min(0.92, Math.max(0.08, w))]).filter(([j]) => j >= 0);
+    return { label: o.label, set: expandSet(o.set), cols };
   });
   return choiceCache[key];
 }
@@ -716,6 +798,8 @@ function choiceAllowed(g, k) {
   const yes = x => k.has(x) && k.get(x) >= 0.75, no = x => k.has(x) && k.get(x) <= 0.25;
   if (g.cond.yes && !g.cond.yes.every(yes)) return false;
   if (g.cond.no && !g.cond.no.every(no)) return false;
+  // déjà tranchée par un « oui » (« Omar Sy joue dedans » ⇒ pas de « lequel de ces acteurs ? »)
+  if (g.options.some(o => { const d = Object.entries(o.def || o.set); return d.length === 1 && d[0][1] === 1 && yes(d[0][0]); })) return false;
   // inutile si toutes ses réponses sont déjà connues
   return g.options.some(o => Object.keys(o.set).some(x => !k.has(x)));
 }
@@ -778,7 +862,7 @@ function answerChoice(o, fromEl) {
   if (o === null) game.answers.push({ attr: current, w: 0.5, label: "Je ne sais pas", c: "var(--mist)", inferred: [] });
   else {
     const opt = choiceOptions(groupOf(current))[o];
-    game.answers.push({ attr: current, w: 1, label: opt.label, c: "var(--brass)", inferred: Object.entries(opt.set).map(([attr, w]) => ({ attr, w })) });
+    game.answers.push({ attr: current, w: 1, choice: o, label: opt.label, c: "var(--brass)", inferred: Object.entries(opt.set).map(([attr, w]) => ({ attr, w })) });
   }
   if (fromEl) { ripple(fromEl); fly(fromEl, { c: "var(--brass)" }); }
   sfx("answer", o === null ? 0.5 : 1);
@@ -833,7 +917,7 @@ function learn(name, desc) {
   }
   const o = learned().obs[name] || (learned().obs[name] = {});
   for (const [attr, w] of known()) {
-    if (attr.startsWith("choice:")) continue;
+    if (attr.startsWith("choice:") || (w > 0.25 && w < 0.75 && w !== 0.5)) continue;
     if (w === 0.5) continue;
     const cur = o[attr] || [0, 0];
     o[attr] = [cur[0] + w, cur[1] + 1];
@@ -859,8 +943,8 @@ const start = () => (who === "toi" ? newReverse() : newGame());
 
 function newReverse() {
   // le secret : uniquement les fiches faites main, des célébrités et personnages connus de tous
-  const handmade = mode === "chose" ? CHOSES.length : PERSONNAGES.length;
-  const pool = CHARS.map((_, i) => i).filter(i => i < handmade && !CHARS[i].t.proche);
+  const pool = mode === "oeuvre" ? byFame().filter(i => !CHARS[i].custom).slice(0, 400)
+    : CHARS.map((_, i) => i).filter(i => i < (mode === "chose" ? CHOSES.length : PERSONNAGES.length) && !CHARS[i].t.proche);
   game = { reverse: true, secret: pick(pool), answers: [], rejected: new Set(), guesses: 0, top: 0, last: null };
   screen = "reverse"; orb.mood = "sure"; orb.conf = 0.04;
   veiled = true; $("veil").textContent = "Afficher";
@@ -902,8 +986,9 @@ function ask(attrs, text) {
 let nameCandidates = null;
 function candidates() {
   if (nameCandidates && nameCandidates.mode === mode) return nameCandidates.list;
-  const famous = new Set(byFame().slice(0, 3000));
-  const list = CHARS.map((c, i) => ({ name: c.name, i, famous: famous.has(i) || i < PERSONNAGES.length }));
+  // le nom de famille seul (« Zidane ») ne vaut que pour les personnes, pas pour un titre ou un objet
+  const famous = mode === "personnage" ? new Set(byFame().slice(0, 3000)) : new Set();
+  const list = CHARS.map((c, i) => ({ name: c.name, i, famous: mode === "personnage" && (famous.has(i) || i < PERSONNAGES.length) }));
   nameCandidates = { mode, list };
   return list;
 }
@@ -984,6 +1069,33 @@ function updateReverse(fresh) {
 }
 
 /* ---------- Rendu ---------- */
+const TXT = {
+  personnage: {
+    count: "personnages", think: "Pense à quelqu'un.<br>Je vais le trouver.", mine: "Je pense à quelqu'un.<br>À toi de trouver qui.",
+    lede: "Une star, un héros de manga, un personnage de dessin animé… ou même toi, ta mère ou ton meilleur ami.",
+    focus: "Concentre-toi bien sur ton personnage…", lost: "À qui pensais-tu ?", field: "Nom du personnage",
+    teachPh: "Ex. : Thomas Pesquet, Totoro, ma tante Josiane…", same: "ce personnage", chosen: "J'ai choisi un personnage.",
+    askPh: "Ex. : c'est un footballeur ? elle est blonde ? il a joué au PSG ?", guessPh: "Ex. : Zinédine Zidane, Pikachu…",
+    secret: "J'ai quelqu'un en tête… Interroge-moi."
+  },
+  chose: {
+    count: "choses", think: "Pense à une chose.<br>Je vais la trouver.", mine: "Je pense à une chose.<br>À toi de trouver laquelle.",
+    lede: "Un animal, un fruit, un légume, un plat, une boisson, une plante ou n'importe quel objet de la maison.",
+    focus: "Concentre-toi bien sur ta chose…", lost: "À quoi pensais-tu ?", field: "Ce que c'était",
+    teachPh: "Ex. : un ornithorynque, une raclette…", same: "la même chose", chosen: "J'ai choisi une chose.",
+    askPh: "Ex. : ça se mange ? il a des roues ? c'est rouge ?", guessPh: "Ex. : girafe, pizza, guitare…",
+    secret: "J'ai quelque chose en tête… Interroge-moi."
+  },
+  oeuvre: {
+    count: "films et séries", think: "Pense à un film ou une série.<br>Je vais le trouver.", mine: "Je pense à un film ou une série.<br>À toi de trouver lequel.",
+    lede: "Un blockbuster, un dessin animé, une série Netflix, un classique en noir et blanc, une comédie française…",
+    focus: "Pense bien à ton film ou ta série…", lost: "À quel film ou quelle série pensais-tu ?", field: "Titre",
+    teachPh: "Ex. : Intouchables, Breaking Bad…", same: "le même titre", chosen: "J'ai choisi un film ou une série.",
+    askPh: "Ex. : c'est une série ? c'est drôle ? il y a DiCaprio ?", guessPh: "Ex. : Titanic, Stranger Things…",
+    secret: "J'ai un titre en tête… Interroge-moi."
+  }
+};
+const T = () => TXT[mode];
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
@@ -1006,7 +1118,7 @@ function say(text) {
 }
 function remark() {
   const p = game.top, n = game.answers.length;
-  if (n === 0) return pick([mode === "chose" ? "Concentre-toi bien sur ta chose…" : "Concentre-toi bien sur ton personnage…", "Je sens une présence. Commençons.", "Ferme les yeux et pense fort."]);
+  if (n === 0) return pick([T().focus, "Je sens une présence. Commençons.", "Ferme les yeux et pense fort."]);
   if (p < 0.12) return pick(["Les brumes sont encore épaisses.", "Tout reste possible…", "Continue, je cherche.", "Hmm, je n'y vois pas encore clair."]);
   if (p < 0.35) return pick(["Une silhouette se dessine.", "Je commence à sentir quelque chose.", "Tiens, tiens…"]);
   if (p < 0.65) return pick(["Je chauffe…", "Plus que quelques questions.", "J'ai une petite idée."]);
@@ -1037,20 +1149,20 @@ function render() {
 
   if (screen === "intro") {
     const counts = MODE.universes.map(([k, label]) => [k, label, CHARS.filter(c => c.t[k] === 1).length]);
-    const chose = mode === "chose";
     const toi = who === "toi";
     html = `
       <div class="modes" role="tablist" aria-label="Qui devine ?">
         <button class="mode" type="button" role="tab" data-who="devin" aria-selected="${!toi}">Le Devin devine</button>
         <button class="mode" type="button" role="tab" data-who="toi" aria-selected="${toi}">C'est toi qui devines</button>
       </div>
-      <div class="modes" role="tablist" aria-label="Personnage ou chose ?">
-        <button class="mode" type="button" role="tab" data-mode="personnage" aria-selected="${!chose}">Un personnage</button>
-        <button class="mode" type="button" role="tab" data-mode="chose" aria-selected="${chose}">Un animal, un objet, un aliment</button>
+      <div class="modes" role="tablist" aria-label="À quoi penser ?">
+        <button class="mode" type="button" role="tab" data-mode="personnage" aria-selected="${mode === "personnage"}">Un personnage</button>
+        <button class="mode" type="button" role="tab" data-mode="oeuvre" aria-selected="${mode === "oeuvre"}">Un film ou une série</button>
+        <button class="mode" type="button" role="tab" data-mode="chose" aria-selected="${mode === "chose"}">Un animal, un objet, un aliment</button>
       </div>
-      <span class="eyebrow">${CHARS.length.toLocaleString("fr-FR")} ${chose ? "choses" : "personnages"} · ${KEYS.length} questions</span>
-      <h1>${toi ? (chose ? "Je pense à une chose.<br>À toi de trouver laquelle." : "Je pense à quelqu'un.<br>À toi de trouver qui.") : chose ? "Pense à une chose.<br>Je vais la trouver." : "Pense à quelqu'un.<br>Je vais le trouver."}</h1>
-      <p class="lede">${toi ? "Pose-moi des questions, je réponds honnêtement. Propose un nom dès que tu crois savoir." : chose ? "Un animal, un fruit, un légume, un plat, une boisson, une plante ou n'importe quel objet de la maison." : "Une star, un héros de manga, un personnage de dessin animé… ou même toi, ta mère ou ton meilleur ami."}</p>
+      <span class="eyebrow">${CHARS.length.toLocaleString("fr-FR")} ${T().count} · ${KEYS.length} questions</span>
+      <h1>${toi ? T().mine : T().think}</h1>
+      <p class="lede">${toi ? "Pose-moi des questions, je réponds honnêtement. Propose un nom dès que tu crois savoir." : T().lede}</p>
       <div class="ticker">Par exemple… <b id="tick"></b></div>
       <div class="row"><button class="btn primary big" id="start" type="button">${toi ? "Choisis, je pose mes questions" : "J'y pense, commence"}</button></div>
       <div class="universes">${counts.map(([k, label, c]) => `<button class="uni" type="button" data-u="${k}">${label} <b>${c}</b></button>`).join("")}</div>`;
@@ -1095,25 +1207,24 @@ function render() {
     const sugg = [...new Set([...rejected, ...ranked(posterior(), 6).map(i => CHARS[i].name)])].slice(0, 6);
     html = `
       <span class="eyebrow">Tu m'as eu</span>
-      <h1>${mode === "chose" ? "À quoi pensais-tu ?" : "À qui pensais-tu ?"}</h1>
+      <h1>${T().lost}</h1>
       <p class="lede">Dis-le-moi et je l'apprendrai avec les ${n} réponses que tu m'as données.</p>
       <form class="learn" id="teachForm" autocomplete="off">
-        <label for="who">${mode === "chose" ? "Ce que c'était" : "Nom du personnage"}</label>
-        <input id="who" placeholder="${mode === "chose" ? "Ex. : un ornithorynque, une raclette…" : "Ex. : Thomas Pesquet, Totoro, ma tante Josiane…"}" required>
+        <label for="who">${T().field}</label>
+        <input id="who" placeholder="${T().teachPh}" required>
         <label id="suggLabel">${sugg.length ? "C'était peut-être l'un d'eux ?" : ""}</label>
         <div class="sugg" id="sugg">${chips(sugg)}</div>
         <div class="row" style="justify-content:flex-start"><button class="btn primary" type="submit">Lui apprendre</button><button class="btn ghost" id="again" type="button">Rejouer sans apprendre</button></div>
       </form>`;
     say(pick(["Je donne ma langue au chat…", "Impossible ! Qui était-ce ?", "Tu m'as battu. Pour cette fois."]));
   } else if (screen === "reverse") {
-    const chose = mode === "chose";
     html = `
       <span class="eyebrow" id="revEyebrow"></span>
-      <h2 class="question">${chose ? "J'ai choisi une chose." : "J'ai choisi un personnage."}<br>À toi de deviner.</h2>
+      <h2 class="question">${T().chosen}<br>À toi de deviner.</h2>
       <div class="reply" id="lastReply" aria-live="polite" hidden></div>
       <form class="ask" id="askForm" autocomplete="off">
         <label for="askIn">Pose ta question comme tu veux</label>
-        <div class="guess-row"><input id="askIn" placeholder="${chose ? "Ex. : ça se mange ? il a des roues ? c'est rouge ?" : "Ex. : c'est un footballeur ? elle est blonde ? il a joué au PSG ?"}"><button class="btn primary" type="submit">Demander</button></div>
+        <div class="guess-row"><input id="askIn" placeholder="${T().askPh}"><button class="btn primary" type="submit">Demander</button></div>
         <span class="hint" id="understood" aria-live="polite"></span>
         <div class="qlist" id="qlist"></div>
         <span class="hint">Besoin d'idées ?</span>
@@ -1121,11 +1232,11 @@ function render() {
       </form>
       <form class="learn" id="guessForm" autocomplete="off">
         <label for="guessIn">Tu crois savoir ?</label>
-        <div class="guess-row"><input id="guessIn" placeholder="${chose ? "Ex. : girafe, pizza, guitare…" : "Ex. : Zinédine Zidane, Pikachu…"}"><button class="btn primary" type="submit">Proposer</button></div>
+        <div class="guess-row"><input id="guessIn" placeholder="${T().guessPh}"><button class="btn primary" type="submit">Proposer</button></div>
         <div class="sugg" id="guessSugg"></div>
       </form>
       <div class="row"><button class="btn ghost" id="giveup" type="button">Je donne ma langue au chat</button></div>`;
-    say(pick([chose ? "J'ai quelque chose en tête… Interroge-moi." : "J'ai quelqu'un en tête… Interroge-moi.", "Mon choix est fait. Je ne mentirai pas.", "Pose tes questions, je réponds."]));
+    say(pick([T().secret, "Mon choix est fait. Je ne mentirai pas.", "Pose tes questions, je réponds."]));
   } else if (screen === "revealed") {
     const c = CHARS[game.secret], n = game.answers.length;
     html = `
@@ -1140,7 +1251,7 @@ function render() {
       <span class="eyebrow">Leçon retenue</span>
       ${medal(guessing)}
       <h1>${esc(guessing.name)}</h1>
-      <p class="lede">C'est noté. Rejoue avec ${mode === "chose" ? "la même chose" : "ce personnage"} pour voir si je l'ai bien compris.</p>
+      <p class="lede">C'est noté. Rejoue avec ${T().same} pour voir si je l'ai bien compris.</p>
       <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button></div>`;
     say("Merci ! Je ne l'oublierai pas.");
   }
