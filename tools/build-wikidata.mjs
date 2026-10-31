@@ -313,6 +313,8 @@ function finalize(e) {
     }
     if (t.sport && b) t.retraite = b < 1982 ? 1 : b < 1990 ? 0.5 : 0;
     if (e.height) { if (e.height >= 190) t.grand = 1; if (e.height < 165) t.petit = 1; }
+    // date de naissance inconnue (papes, saints, figures anciennes) : l'époque reste « inconnue », pas « non »
+    if (b === undefined) for (const k of ["neavant1945", "neapres1960", "neapres1970", "neapres1980", "neapres1990", "neapres2000", "passe", "siecle20", "antiquite", "moyenage", "jeune"]) if (!(k in t)) t[k] = 0.5;
     if (b !== undefined) {
       if (b < 1945) t.neavant1945 = 1;
       for (const y of [1960, 1970, 1980, 1990, 2000]) if (b >= y) t["neapres" + y] = 1;
@@ -338,7 +340,7 @@ function finalize(e) {
 // Pour une entrée automatique : traits connus avec certitude (absents = « non ») et traits incomplets (absents = « peu probable »)
 const DEFAULTS = {
   h: {
-    zero: "psg om ol monaco realmadrid barca atletico manutd liverpool chelsea arsenal mancity bayern dortmund juventus milan inter nba f1 filmmarvel filmhp filmstarwars filmbond presidentus presidentfr roifrance neapres1960 neapres1980 neapres1990 neapres2000 animal chien chat robot monstre mythe anime jeu bd dessin disney marvel pouvoir proche famille toi ecole livre neavant1945 neapres1970 mortjeune nobel oscar grammy ballondor olympique chefetat starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc",
+    zero: "homme femme psg om ol monaco realmadrid barca atletico manutd liverpool chelsea arsenal mancity bayern dortmund juventus milan inter nba f1 filmmarvel filmhp filmstarwars filmbond presidentus presidentfr roifrance neapres1960 neapres1980 neapres1990 neapres2000 animal chien chat robot monstre mythe anime jeu bd dessin disney marvel pouvoir proche famille toi ecole livre neavant1945 neapres1970 mortjeune nobel oscar grammy ballondor olympique chefetat starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc",
     soft: "deurope damerique maghreb afriquenoire moyenorient europeest danseur photographe architecte economiste avocat entrepreneur explorateur producteur opera cheforchestre ski volley gardien defenseur milieu attaquant entraineur doubleur guitare piano batterie grand petit bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche assassine rock pop jazz classique chanteur compositeur journaliste medecin maths cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball groupe vivant jeune enfant vieux passe antiquite moyenage siecle20 francais europe anglais americain japon espagne italie allemagne russie afrique asie amlatine film serie musique rap sport foot basket tennis combat voiture retraite politique science art ecrivain acteur realisateur humour television internet espace royal militaire religion philosophe mannequin"
   },
   f: {

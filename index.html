@@ -142,6 +142,16 @@ h2.question { font-size: clamp(1.45rem, 3.8vw, 2.1rem); min-height: 2.4em; displ
   padding: 14px 8px 12px; display: flex; flex-direction: column; align-items: center; gap: 5px;
   transition: transform .18s cubic-bezier(.2,1.4,.4,1), border-color .18s, box-shadow .18s;
 }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; width: 100%; }
+.busy .choices { opacity: .45; pointer-events: none; }
+.opt {
+  position: relative; overflow: hidden; --c: var(--brass);
+  background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 999px; padding: 11px 18px; font-weight: 600;
+  display: inline-flex; align-items: baseline; gap: 8px; transition: transform .18s cubic-bezier(.2,1.4,.4,1), border-color .18s;
+}
+.opt:hover { border-color: var(--brass); transform: translateY(-2px); }
+.opt .k { font-family: var(--f-mono); font-size: .66rem; color: var(--mist); font-weight: 400; }
+.opt.dunno { color: var(--mist); --c: var(--mist); }
 .ans:hover { transform: translateY(-3px); border-color: var(--c); box-shadow: 0 10px 30px -12px var(--c); }
 .ans:active { transform: translateY(0) scale(.97); }
 .ans .w { font-weight: 600; font-size: .95rem; color: var(--c); }
@@ -364,10 +374,94 @@ const LOGIC_CHOSE = {
   notIfYes: { mangeable: ["objet", "animal", "plante"], objet: ["mangeable"], animal: ["mangeable"], plante: ["mangeable"] }
 };
 
+/* Questions à choix : une seule question au lieu d'une série de oui/non.
+   Chaque option fixe la réponse à plusieurs questions oui/non. « others » donne la valeur des options non choisies :
+   0 = forcément non, 0.2 = probablement non, null = on ne sait pas (plusieurs peuvent être vraies, comme les clubs).
+   cond.yes / cond.no : questions qui doivent avoir reçu « oui » / « non » avant de poser celle-ci. */
+function choiceGroup(id, text, cond, keys, labels, others, noneLabel, noneValue = 0) {
+  const options = keys.map((k, n) => {
+    const set = {};
+    if (others !== null) for (const o of keys) if (o !== k) set[o] = others;
+    set[k] = 1;
+    return { label: labels[n], set };
+  });
+  if (noneLabel) options.push({ label: noneLabel, set: Object.fromEntries(keys.map(k => [k, noneValue])) });
+  return { id, text, cond, options };
+}
+const CHOICES_PERSONNAGE = [
+  choiceGroup("domaine", "Dans quel domaine est-il surtout connu ?", { yes: ["reel"] },
+    words("sport musique acteur politique science art internet television royal religion militaire entrepreneur"),
+    ["Sport", "Musique", "Cinéma ou séries", "Politique", "Sciences", "Art ou écriture", "Internet", "Télévision", "Royauté", "Religion", "Armée", "Affaires"],
+    0.35, "Autre chose", 0.2),  // 0.35 : on peut être connu dans plusieurs domaines (un pape est aussi chef d'État)
+  { id: "origine", text: "D'où vient-il ?", cond: { yes: ["reel"] }, options: [
+    { label: "France", set: { francais: 1, deurope: 1, europe: 0, damerique: 0, afrique: 0, asie: 0 } },
+    { label: "Ailleurs en Europe", set: { europe: 1, deurope: 1, francais: 0, damerique: 0, afrique: 0, asie: 0 } },
+    { label: "Amérique du Nord", set: { damerique: 1, amlatine: 0, deurope: 0, afrique: 0, asie: 0, australie: 0 } },
+    { label: "Amérique latine", set: { amlatine: 1, damerique: 1, deurope: 0, afrique: 0, asie: 0 } },
+    { label: "Afrique", set: { afrique: 1, deurope: 0, damerique: 0, asie: 0 } },
+    { label: "Asie ou Moyen-Orient", set: { asie: 1, deurope: 0, damerique: 0, afrique: 0 } },
+    { label: "Océanie", set: { australie: 1, deurope: 0, damerique: 0, afrique: 0, asie: 0 } }
+  ] },
+  { id: "naissance", text: "Quand est-il né ?", cond: { yes: ["reel"] }, options: [
+    { label: "Avant 1800", set: { passe: 1, neavant1945: 1, neapres1960: 0, siecle20: 0, vivant: 0, jeune: 0 } },
+    { label: "1800 – 1899", set: { passe: 1, neavant1945: 1, neapres1960: 0, vivant: 0, jeune: 0, antiquite: 0, moyenage: 0 } },
+    { label: "1900 – 1944", set: { neavant1945: 1, passe: 0, neapres1960: 0, siecle20: 1, jeune: 0 } },
+    { label: "1945 – 1959", set: { neavant1945: 0, neapres1960: 0, passe: 0, jeune: 0 } },
+    { label: "Années 60", set: { neapres1960: 1, neapres1970: 0, siecle20: 0, jeune: 0 } },
+    { label: "Années 70", set: { neapres1970: 1, neapres1980: 0, siecle20: 0, jeune: 0 } },
+    { label: "Années 80", set: { neapres1980: 1, neapres1990: 0, siecle20: 0 } },
+    { label: "Années 90", set: { neapres1990: 1, neapres2000: 0, siecle20: 0 } },
+    { label: "2000 ou après", set: { neapres2000: 1, siecle20: 0, jeune: 1 } }
+  ] },
+  choiceGroup("sport", "Quel sport ?", { yes: ["sport"] },
+    words("foot basket tennis combat voiture cyclisme athletisme natation rugby ski"),
+    ["Football", "Basket", "Tennis", "Sport de combat", "Sport automobile", "Cyclisme", "Athlétisme", "Natation", "Rugby", "Ski"], 0, "Un autre sport"),
+  choiceGroup("poste", "À quel poste joue-t-il ?", { yes: ["foot"] },
+    words("gardien defenseur milieu attaquant"), ["Gardien", "Défenseur", "Milieu", "Attaquant"], 0, "Il est entraîneur"),
+  choiceGroup("club", "Dans lequel de ces grands clubs a-t-il joué ?", { yes: ["foot"] }, words(CLUBS),
+    ["PSG", "OM", "OL", "Monaco", "Real Madrid", "Barça", "Atlético", "Manchester United", "Liverpool", "Chelsea", "Arsenal", "Manchester City", "Bayern", "Dortmund", "Juventus", "AC Milan", "Inter"],
+    0.3, "Aucun de ceux-là"),
+  choiceGroup("genre", "Quel genre de musique ?", { yes: ["musique"] },
+    words("rap rock pop jazz classique"), ["Rap", "Rock ou métal", "Pop", "Jazz", "Classique"], 0.35, "Autre", 0.2),
+  choiceGroup("cheveux", "De quelle couleur sont ses cheveux ?", { yes: ["humain"] },
+    words("blond roux chauve"), ["Blonds", "Roux", "Il est chauve"], 0, "Bruns ou noirs"),
+  choiceGroup("media", "Où apparaît-il surtout ?", { no: ["reel"] },
+    words("film serie anime jeu bd livre dessin mythe"),
+    ["Au cinéma", "Dans une série", "Manga ou anime", "Jeu vidéo", "BD ou comics", "Livre ou conte", "Dessin animé", "Mythologie ou légende"], null, "Ailleurs", 0.25),
+  choiceGroup("univers", "De quel univers vient-il ?", { no: ["reel"] },
+    words("marvel dc disney starwars harrypotter pokemon nintendo simpsons dragonball onepiece naruto tolkien got"),
+    ["Marvel", "DC", "Disney ou Pixar", "Star Wars", "Harry Potter", "Pokémon", "Nintendo", "Les Simpson", "Dragon Ball", "One Piece", "Naruto", "Seigneur des anneaux", "Game of Thrones"],
+    0, "Aucun de ceux-là")
+];
+const CHOICES_CHOSE = [
+  choiceGroup("categorie", "Qu'est-ce que c'est ?", {}, words("animal mangeable plante objet"),
+    ["Un animal", "Quelque chose qui se mange ou se boit", "Une plante", "Un objet"], 0),
+  choiceGroup("couleur", "Quelle est sa couleur principale ?", {}, words("rouge vert jaune orange blanc noir marron rose bleu"),
+    ["Rouge", "Vert", "Jaune", "Orange", "Blanc", "Noir", "Marron", "Rose", "Bleu"], 0.2, "Autre ou plusieurs", 0.3),
+  choiceGroup("typeanimal", "Quel genre d'animal ?", { yes: ["animal"] }, words("mammifere oiseau poisson reptile insecte"),
+    ["Un mammifère", "Un oiseau", "Un poisson", "Un reptile ou amphibien", "Un insecte ou une petite bête"], 0, "Autre"),
+  choiceGroup("habitat", "Où vit-il ?", { yes: ["animal"] }, words("domestique ferme savane foret eau froid"),
+    ["À la maison", "À la ferme", "Dans la savane", "En forêt", "Dans l'eau", "Dans le froid"], 0.2, "Ailleurs", 0.2),
+  choiceGroup("typealiment", "Quel genre d'aliment ?", { yes: ["mangeable"] }, words("fruit legume plat dessert boisson"),
+    ["Un fruit", "Un légume", "Un plat", "Un dessert ou une douceur", "Une boisson"], 0.2, "Autre (pain, fromage, sauce…)", 0),
+  choiceGroup("typeobjet", "Quel genre d'objet ?", { yes: ["objet"] }, words("vehicule electrique vetement meuble jouet instrument outil"),
+    ["Un moyen de transport", "Un appareil électrique", "Un vêtement ou accessoire", "Un meuble", "Un jouet ou un jeu", "Un instrument de musique", "Un outil"], 0.2, "Autre", 0.2),
+  { id: "piece", text: "Où le trouve-t-on ?", cond: { yes: ["objet"] }, options: [
+    { label: "Dans la cuisine", set: { cuisine: 1, maison: 1, sdb: 0 } },
+    { label: "Dans la salle de bain", set: { sdb: 1, maison: 1, cuisine: 0 } },
+    { label: "À l'école ou au bureau", set: { ecole: 1, cuisine: 0, sdb: 0 } },
+    { label: "Ailleurs dans la maison", set: { maison: 1, cuisine: 0, sdb: 0 } },
+    { label: "Dehors ou ailleurs", set: { maison: 0, cuisine: 0, sdb: 0 } }
+  ] },
+  choiceGroup("matiere", "En quoi est-il surtout fait ?", { yes: ["objet"] }, words("metal bois plastique verre tissu papier"),
+    ["Métal", "Bois", "Plastique", "Verre ou céramique", "Tissu", "Papier ou carton"], 0.2, "Autre", 0.2)
+];
+
 const MODES = {
   personnage: {
     questions: QUESTIONS,
     logic: LOGIC_PERSONNAGE,
+    choices: CHOICES_PERSONNAGE,
     universes: [
       ["reel", "Personnes réelles"], ["serie", "Séries"], ["film", "Cinéma"], ["anime", "Manga"], ["jeu", "Jeux vidéo"], ["disney", "Disney & Pixar"],
       ["marvel", "Marvel & DC"], ["livre", "Livres & contes"], ["bd", "BD"], ["mythe", "Légendes"], ["proche", "Toi & tes proches"]
@@ -394,6 +488,7 @@ const MODES = {
   chose: {
     questions: CHOSES_QUESTIONS,
     logic: LOGIC_CHOSE,
+    choices: CHOICES_CHOSE,
     universes: [
       ["animal", "Animaux"], ["fruit", "Fruits"], ["legume", "Légumes"], ["plat", "Plats"], ["dessert", "Desserts"], ["boisson", "Boissons"],
       ["plante", "Plantes"], ["objet", "Objets"], ["vehicule", "Transports"], ["electrique", "Électronique"]
@@ -516,7 +611,7 @@ function allowed(a, k) {
 
 function posterior() {
   const N = CHARS.length, logs = new Float64Array(N);
-  const ans = [...known()].map(([attr, w]) => [KEYS.indexOf(attr), w]);
+  const ans = [...known()].map(([attr, w]) => [KEYS.indexOf(attr), w]).filter(([j]) => j >= 0);
   let m = -Infinity;
   for (let i = 0; i < N; i++) {
     if (game.rejected.has(CHARS[i].name)) { logs[i] = -Infinity; continue; }
@@ -574,8 +669,58 @@ function scoreQuestions(post) {
     const h = py * (Math.log(py) - sy / py) + pn * (Math.log(pn) - sn / pn);
     scored.push({ a, h });
   }
+  // questions à choix : même calcul, avec une branche par option
+  for (const g of MODE.choices || []) {
+    if (!choiceAllowed(g, k)) continue;
+    const opts = choiceOptions(g);
+    const P = new Float64Array(opts.length), SL = new Float64Array(opts.length), L = new Float64Array(opts.length);
+    for (let x = 0; x < live.length; x++) {
+      const row = live[x] * A;
+      let tot = 0;
+      for (let o = 0; o < opts.length; o++) {
+        let l = 1;
+        for (const [j, w] of opts[o].cols) { const p = M[row + j]; l *= w * p + (1 - w) * (1 - p); }
+        L[o] = l; tot += l;
+      }
+      for (let o = 0; o < opts.length; o++) {
+        const y = q[x] * L[o] / tot;
+        P[o] += y;
+        if (y > 0) SL[o] += y * Math.log(y);
+      }
+    }
+    let h = 0, maxP = 0;
+    for (let o = 0; o < opts.length; o++) if (P[o] > 0) { h += P[o] * Math.log(P[o]) - SL[o]; maxP = Math.max(maxP, P[o]); }
+    if (maxP > 0.96) continue;
+    scored.push({ a: "choice:" + g.id, h, choice: true });
+  }
   return scored.sort((x, y) => x.h - y.h);
 }
+// options d'une question à choix, complétées par les déductions et traduites en colonnes de la matrice
+const choiceCache = {};
+function expandSet(set) {
+  const full = { ...set };
+  for (const [a, w] of Object.entries(set)) for (const d of inferFrom(a, w)) if (!(d.attr in full)) full[d.attr] = d.w;
+  return full;
+}
+function choiceOptions(g) {
+  const key = mode + ":" + g.id;
+  if (!choiceCache[key]) choiceCache[key] = g.options.map(o => {
+    // une option choisie tranche plusieurs traits d'un coup : on reste tolérant (0,92 / 0,08) en cas d'erreur du joueur
+    const set = Object.fromEntries(Object.entries(expandSet(o.set)).map(([k, w]) => [k, Math.min(0.92, Math.max(0.08, w))]));
+    return { label: o.label, set, cols: Object.entries(set).map(([a, w]) => [KEYS.indexOf(a), w]).filter(([j]) => j >= 0) };
+  });
+  return choiceCache[key];
+}
+function choiceAllowed(g, k) {
+  if (k.has("choice:" + g.id)) return false;
+  const yes = x => k.has(x) && k.get(x) >= 0.75, no = x => k.has(x) && k.get(x) <= 0.25;
+  if (g.cond.yes && !g.cond.yes.every(yes)) return false;
+  if (g.cond.no && !g.cond.no.every(no)) return false;
+  // inutile si toutes ses réponses sont déjà connues
+  return g.options.some(o => Object.keys(o.set).some(x => !k.has(x)));
+}
+const groupOf = a => (MODE.choices || []).find(g => "choice:" + g.id === a);
+const questionText = a => (a.startsWith("choice:") ? groupOf(a).text : QS[a]);
 
 function universeOf(c) {
   const hit = MODE.labels.find(([k]) => c.t[k] === 1);
@@ -620,11 +765,26 @@ function next() {
 }
 
 function answer(w, fromEl) {
-  if (screen !== "question" || busy) return;
+  if (screen !== "question" || busy || current.startsWith("choice:")) return;
   game.answers.push({ attr: current, w, inferred: inferFrom(current, w) });
   const a = ANSWERS.find(x => x.w === w);
   if (fromEl) { ripple(fromEl); fly(fromEl, a); }
   sfx("answer", w);
+  thinkThenNext();
+}
+// o : numéro de l'option choisie, ou null pour « je ne sais pas »
+function answerChoice(o, fromEl) {
+  if (screen !== "question" || busy || !current.startsWith("choice:")) return;
+  if (o === null) game.answers.push({ attr: current, w: 0.5, label: "Je ne sais pas", c: "var(--mist)", inferred: [] });
+  else {
+    const opt = choiceOptions(groupOf(current))[o];
+    game.answers.push({ attr: current, w: 1, label: opt.label, c: "var(--brass)", inferred: Object.entries(opt.set).map(([attr, w]) => ({ attr, w })) });
+  }
+  if (fromEl) { ripple(fromEl); fly(fromEl, { c: "var(--brass)" }); }
+  sfx("answer", o === null ? 0.5 : 1);
+  thinkThenNext();
+}
+function thinkThenNext() {
   busy = true;
   document.getElementById("card").classList.add("busy");
   orb.mood = "think";
@@ -673,6 +833,7 @@ function learn(name, desc) {
   }
   const o = learned().obs[name] || (learned().obs[name] = {});
   for (const [attr, w] of known()) {
+    if (attr.startsWith("choice:")) continue;
     if (w === 0.5) continue;
     const cur = o[attr] || [0, 0];
     o[attr] = [cur[0] + w, cur[1] + 1];
@@ -817,7 +978,7 @@ function updateReverse(fresh) {
       game.last.items.map(it => `<div><span>${esc(QS[it.attr])}</span><b style="color:${it.c}">${it.label}</b></div>`).join("");
     if (fresh) { box.classList.remove("pop"); void box.offsetWidth; box.classList.add("pop"); }
   }
-  $("revSugg").innerHTML = qButtons(scoreQuestions(post).slice(0, 3).map(s => s.a));
+  $("revSugg").innerHTML = qButtons(scoreQuestions(post).filter(s => !s.choice).slice(0, 3).map(s => s.a));
   bindQuestions();
   renderNotebook(ranked(post, 6).map(i => [post[i], i]));
 }
@@ -895,15 +1056,17 @@ function render() {
       <div class="universes">${counts.map(([k, label, c]) => `<button class="uni" type="button" data-u="${k}">${label} <b>${c}</b></button>`).join("")}</div>`;
     say(mem.games ? pick(["Te revoilà ! Prêt pour une nouvelle partie ?", "J'ai appris depuis la dernière fois.", "Encore une ? Je suis en forme."]) : "Bonjour. Je lis dans les pensées. Tu veux essayer ?");
   } else if (screen === "question") {
+    const g = current.startsWith("choice:") ? groupOf(current) : null;
     html = `
       <span class="eyebrow">Question ${n + 1} · certitude ${Math.round(game.top * 100)} %</span>
       <h2 class="question" id="q"></h2>
-      <div class="answers">${ANSWERS.map(a => `
+      ${g ? `<div class="choices">${choiceOptions(g).map((o, x) => `<button class="opt" type="button" data-o="${x}">${esc(o.label)}${x < 9 ? `<span class="k">${x + 1}</span>` : ""}</button>`).join("")}
+        <button class="opt dunno" type="button" data-o="">Je ne sais pas<span class="k">0</span></button></div>` : `<div class="answers">${ANSWERS.map(a => `
         <button class="ans ${a.cls || ""}" type="button" data-w="${a.w}" style="--c:${a.c}">
           <span class="glyph"><i style="width:${a.g}px;height:${a.g}px"></i></span>
           <span class="w">${a.label}</span><span class="k">${a.key}</span>
         </button>`).join("")}
-      </div>
+      </div>`}
       <div class="row"><button class="btn ghost" id="undo" type="button" ${n ? "" : "disabled"}>← Revenir à la question précédente</button></div>`;
     say(remark());
   } else if (screen === "guess") {
@@ -983,7 +1146,7 @@ function render() {
   }
   card.innerHTML = html;
   card.classList.remove("fade", "busy"); void card.offsetWidth; card.classList.add("fade");
-  if (screen === "question") typeInto($("q"), QS[current]);
+  if (screen === "question") typeInto($("q"), questionText(current));
   if (screen === "intro") startTicker();
   if (screen === "reverse") updateReverse(false);
   document.querySelector(".nb-head h3").textContent = screen === "reverse" ? "Mes pistes (aide)" : "Mes pistes";
@@ -1008,6 +1171,7 @@ function bind() {
     newGame();
   });
   document.querySelectorAll(".ans").forEach(b => b.onclick = () => answer(+b.dataset.w, b));
+  document.querySelectorAll(".opt").forEach(b => b.onclick = () => answerChoice(b.dataset.o === "" ? null : +b.dataset.o, b));
   document.querySelectorAll(".chip").forEach(b => b.onclick = () => teach(b.dataset.name));
   document.querySelectorAll(".mode[data-who]").forEach(b => b.onclick = () => {
     if (b.dataset.who === who) return;
@@ -1083,7 +1247,7 @@ function renderNotebook(order) {
   requestAnimationFrame(() => leads.querySelectorAll(".bar > i").forEach(i => { i.style.width = i.dataset.w + "%"; }));
   const label = a => a.label ? a : ANSWERS.find(x => x.w === a.w);
   $("trail").innerHTML = game.answers.slice().reverse().map(a =>
-    `<div><span title="${esc(QS[a.attr])}">${esc(QS[a.attr])}</span><b style="color:${label(a).c}">${label(a).label}</b></div>`).join("")
+    `<div><span title="${esc(questionText(a.attr))}">${esc(questionText(a.attr))}</span><b style="color:${label(a).c}">${label(a).label}</b></div>`).join("")
     || `<div><span>Aucune réponse pour l'instant.</span></div>`;
 }
 $("veil").onclick = () => {
@@ -1105,7 +1269,11 @@ $("sound").onclick = () => { mem.sound = !mem.sound; saveMem(); renderSound(); s
 
 document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT") return;
-  if (screen === "question") {
+  if (screen === "question" && current.startsWith("choice:")) {
+    if (e.key === "0") answerChoice(null, document.querySelector(".opt.dunno"));
+    else if (/^[1-9]$/.test(e.key)) { const b = document.querySelector(`.opt[data-o="${+e.key - 1}"]`); if (b) answerChoice(+e.key - 1, b); }
+    else if (e.key === "Backspace") { e.preventDefault(); undo(); }
+  } else if (screen === "question") {
     const a = ANSWERS.find(a => a.key === e.key);
     if (a) answer(a.w, document.querySelector(`.ans[data-w="${a.w}"]`));
     else if (e.key === "Backspace") { e.preventDefault(); undo(); }
