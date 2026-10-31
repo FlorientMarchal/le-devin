@@ -159,7 +159,47 @@ const QUESTIONS = {
   naruto: "Vient-il de Naruto ?",
   startrek: "Vient-il de Star Trek ?",
   doctorwho: "Vient-il de Doctor Who ?",
-  dc: "Fait-il partie de l'univers DC (Batman, Superman…) ?"
+  dc: "Fait-il partie de l'univers DC (Batman, Superman…) ?",
+  neapres1960: "Est-il né après 1960 ?",
+  neapres1980: "Est-il né après 1980 ?",
+  neapres1990: "Est-il né après 1990 ?",
+  neapres2000: "Est-il né après 2000 ?",
+  grand: "Mesure-t-il plus d'1,90 m ?",
+  gardien: "Est-il gardien de but ?",
+  defenseur: "Est-il défenseur ?",
+  milieu: "Est-il milieu de terrain ?",
+  attaquant: "Est-il attaquant ?",
+  entraineur: "Est-il ou a-t-il été entraîneur ?",
+  psg: "A-t-il joué au Paris Saint-Germain ?",
+  om: "A-t-il joué à l'Olympique de Marseille ?",
+  ol: "A-t-il joué à l'Olympique lyonnais ?",
+  monaco: "A-t-il joué à l'AS Monaco ?",
+  realmadrid: "A-t-il joué au Real Madrid ?",
+  barca: "A-t-il joué au FC Barcelone ?",
+  atletico: "A-t-il joué à l'Atlético de Madrid ?",
+  manutd: "A-t-il joué à Manchester United ?",
+  liverpool: "A-t-il joué à Liverpool ?",
+  chelsea: "A-t-il joué à Chelsea ?",
+  arsenal: "A-t-il joué à Arsenal ?",
+  mancity: "A-t-il joué à Manchester City ?",
+  bayern: "A-t-il joué au Bayern Munich ?",
+  dortmund: "A-t-il joué au Borussia Dortmund ?",
+  juventus: "A-t-il joué à la Juventus ?",
+  milan: "A-t-il joué à l'AC Milan ?",
+  inter: "A-t-il joué à l'Inter Milan ?",
+  nba: "A-t-il joué en NBA ?",
+  f1: "Est-ce un pilote de Formule 1 ?",
+  filmmarvel: "A-t-il joué dans un film Marvel ?",
+  filmhp: "A-t-il joué dans un film Harry Potter ?",
+  filmstarwars: "A-t-il joué dans un film Star Wars ?",
+  filmbond: "A-t-il joué dans un James Bond ?",
+  doubleur: "Prête-t-il sa voix à des dessins animés ou des doublages ?",
+  guitare: "Joue-t-il de la guitare ?",
+  piano: "Joue-t-il du piano ?",
+  batterie: "Joue-t-il de la batterie ?",
+  presidentus: "A-t-il été président des États-Unis ?",
+  presidentfr: "A-t-il été président de la République française ?",
+  roifrance: "A-t-il été roi de France ?"
 };
 
 const IMPLIQUE = {
@@ -170,7 +210,9 @@ const IMPLIQUE = {
   chanteur: ["musique"], compositeur: ["musique"], cyclisme: ["sport"], athletisme: ["sport"], natation: ["sport"], rugby: ["sport"], hockey: ["sport"],
   golf: ["sport"], baseball: ["sport"], cricket: ["sport"], footus: ["sport"], handball: ["sport"], bresil: ["amlatine"], argentine: ["amlatine"], mexique: ["amlatine"],
   chine: ["asie"], inde: ["asie"], coree: ["asie"], belgique: ["europe"], suisse: ["europe"], paysbas: ["europe"], portugal: ["europe"], pologne: ["europe"],
-  nordique: ["europe"], irlande: ["europe"], autriche: ["europe"], basket: ["sport"], retraite: ["sport"], toi: ["proche"], famille: ["proche"]
+  nordique: ["europe"], irlande: ["europe"], autriche: ["europe"],
+  gardien: ["foot"], defenseur: ["foot"], milieu: ["foot"], attaquant: ["foot"], nba: ["basket"], f1: ["voiture"],
+  presidentus: ["chefetat", "americain"], presidentfr: ["chefetat", "francais"], roifrance: ["royal", "francais"], basket: ["sport"], retraite: ["sport"], toi: ["proche"], famille: ["proche"]
 };
 
 const PERSONNAGES = [

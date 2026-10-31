@@ -7,7 +7,7 @@ Pense à quelqu'un (une star, un héros de manga, toi-même, quelqu'un de ta fam
 ## Ce qu'il sait faire
 
 - **Deux modes** : personnages, ou animaux, objets et aliments (334 choses, 100 questions).
-- **Plus de 28 000 personnages** et **155 questions** : environ 23 000 personnalités du monde entier et 4 600 personnages de séries, films, mangas, jeux vidéo, BD, livres et mythologies, tirés de Wikidata, plus près de 500 fiches faites main (avec toi et tes proches).
+- **Plus de 28 000 personnages** et **195 questions** (dont clubs de foot, postes, taille, sagas de films, instruments) : environ 23 000 personnalités du monde entier et 4 600 personnages de séries, films, mangas, jeux vidéo, BD, livres et mythologies, tirés de Wikidata, plus près de 500 fiches faites main (avec toi et tes proches).
 - **Il connaît la notoriété** : un personnage célèbre est jugé plus probable qu'un inconnu.
 - **Il tolère les erreurs** : chaque réponse ajuste une probabilité (raisonnement bayésien), aucune n'élimine un personnage d'office.
 - **Il pose la question la plus utile** à chaque tour (celle qui réduit le plus l'incertitude), dans un ordre logique : du général au précis, sans jamais reposer une question déjà tranchée (après « homme », pas de « femme »).

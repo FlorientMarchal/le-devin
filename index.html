@@ -277,12 +277,22 @@ const words = s => s.split(" ");
    pair      — deux questions complémentaires : répondre à l'une donne la réponse à l'autre (homme / femme)
    oneOf     — une seule peut être vraie : après un « oui », on ne pose plus les autres
    needs     — question précise posée seulement après un « oui » à l'une des questions générales
-   notIfNo / notIfYes — questions sans objet après un « non » / un « oui » à une autre */
+   notIfNo / notIfYes — questions sans objet après un « non » / un « oui » à une autre
+   chains    — seuils croissants : « né après 1990 » ⇒ « né après 1980 » ; « pas après 1970 » ⇒ « pas après 1990 »
+   implies   — [question, réponse, question déduite, réponse déduite] */
 const EUROPE = "anglais espagne italie allemagne russie belgique suisse paysbas portugal pologne nordique grece irlande autriche";
 const SPORTS = "foot basket tennis combat voiture cyclisme athletisme natation rugby hockey golf baseball cricket footus handball";
+const CLUBS = "psg om ol monaco realmadrid barca atletico manutd liverpool chelsea arsenal mancity bayern dortmund juventus milan inter";
+const BIRTH = words("neapres1960 neapres1970 neapres1980 neapres1990 neapres2000");
 const LOGIC_PERSONNAGE = {
   pair: [["homme", "femme"]],
+  chains: [BIRTH],
+  implies: [
+    ["neavant1945", 1, "neapres1960", 0], ["neapres1960", 1, "neavant1945", 0], ["jeune", 1, "neapres1980", 1],
+    ["neapres1990", 1, "jeune", 1], ["vivant", 0, "jeune", 0], ["reel", 0, "vivant", 0], ["passe", 1, "neapres1960", 0]
+  ],
   oneOf: [
+    words("gardien defenseur milieu attaquant"), words("presidentus presidentfr"),
     words("francais americain japon canada australie turquie " + EUROPE + " bresil argentine mexique chine inde coree egypte"),
     words("europe afrique amlatine"), words("humain animal robot"), words("chien chat"), words(SPORTS),
     words("antiquite moyenage siecle20"), words("toi famille")
@@ -296,14 +306,18 @@ const LOGIC_PERSONNAGE = {
     Object.fromEntries(words("pokemon nintendo").map(k => [k, ["jeu"]])),
     Object.fromEntries(words("dragonball onepiece naruto").map(k => [k, ["anime"]])),
     Object.fromEntries(words("got doctorwho").map(k => [k, ["serie"]])),
+    Object.fromEntries(words(CLUBS + " gardien defenseur milieu attaquant entraineur").map(k => [k, ["foot"]])),
+    Object.fromEntries(words("filmmarvel filmhp filmstarwars filmbond doubleur").map(k => [k, ["acteur"]])),
+    Object.fromEntries(words("guitare piano batterie").map(k => [k, ["musique"]])),
     {
+      nba: ["basket"], f1: ["voiture"], presidentus: ["politique"], presidentfr: ["politique"], roifrance: ["royal"],
       egypte: ["afrique"], ballondor: ["foot"], chefetat: ["politique"], oscar: ["acteur", "realisateur", "film"],
       simpsons: ["dessin", "serie"], dc: ["marvel"], harrypotter: ["livre", "film", "pouvoir"], tolkien: ["livre", "film"],
       starwars: ["espace", "film"], startrek: ["espace", "serie"], chien: ["animal"], chat: ["animal"],
       famille: ["proche"], toi: ["proche"], jeune: ["vivant"], antiquite: ["passe"], moyenage: ["passe"]
     }
   ),
-  notIfNo: Object.fromEntries(words("vivant jeune neavant1945 neapres1970 mortjeune assassine nobel oscar grammy ballondor olympique chefetat retraite proche").map(k => [k, ["reel"]])),
+  notIfNo: Object.fromEntries(words("vivant jeune neavant1945 " + BIRTH.join(" ") + " grand mortjeune assassine nobel oscar grammy ballondor olympique chefetat retraite proche").map(k => [k, ["reel"]])),
   notIfYes: Object.assign(
     Object.fromEntries(words("anime jeu bd dessin disney marvel dc monstre mythe robot starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho").map(k => [k, ["reel"]])),
     { siecle20: ["passe"], neapres1970: ["neavant1945"], neavant1945: ["neapres1970", "jeune"], vieux: ["jeune", "enfant"] }
@@ -313,7 +327,7 @@ const ANIMAL_TRAITS = "mammifere oiseau poisson reptile insecte domestique ferme
 const FOOD_TRAITS = "fruit legume boisson sucre plat dessert viande laitier cereale chaud cru noyau epluche fastfood petitdej italien francais asiatique americain";
 const OBJECT_TRAITS = "electrique vehicule maison cuisine sdb ecole meuble vetement jouet instrument sportobj outil metal bois plastique verre tissu papier lumiere ecrire nettoyer poche moderne";
 const LOGIC_CHOSE = {
-  pair: [],
+  pair: [], chains: [], implies: [],
   oneOf: [words("animal objet plante"), words("mammifere oiseau poisson reptile insecte"), words("fruit legume boisson plat"), words("italien francais asiatique americain")],
   needs: Object.assign(
     Object.fromEntries(words(ANIMAL_TRAITS).map(k => [k, ["animal"]])),
@@ -448,13 +462,22 @@ function known() {
   return out;
 }
 function inferFrom(attr, w) {
-  if (w > 0.25 && w < 0.75) return [];
-  const out = [];
-  for (const [a, b] of MODE.logic.pair) {
-    if (attr === a) out.push({ attr: b, w: 1 - w });
-    if (attr === b) out.push({ attr: a, w: 1 - w });
+  const L = MODE.logic, found = new Map(), todo = [[attr, w]];
+  const add = (a, v) => { if (a !== attr && !found.has(a)) { found.set(a, v); todo.push([a, v]); } };
+  while (todo.length) {
+    const [a, v] = todo.pop();
+    const yes = v >= 0.75, no = v <= 0.25;
+    if (!yes && !no) continue;
+    for (const [x, y] of L.pair) { if (a === x) add(y, 1 - v); if (a === y) add(x, 1 - v); }
+    for (const chain of L.chains) {
+      const i = chain.indexOf(a);
+      if (i < 0) continue;
+      if (yes) chain.slice(0, i).forEach(k => add(k, v));
+      else chain.slice(i + 1).forEach(k => add(k, v));
+    }
+    for (const [x, xv, y, yv] of L.implies) if (a === x && (xv === 1 ? yes : no)) add(y, yv);
   }
-  return out;
+  return [...found].map(([a, v]) => ({ attr: a, w: v }));
 }
 function allowed(a, k) {
   if (k.has(a)) return false;
@@ -537,7 +560,7 @@ const ANSWERS = [
   { w: 0.25, label: "Plutôt non", key: "4", c: "#e6a77c", g: 8 },
   { w: 0, label: "Non", key: "5", c: "var(--rose)", g: 12 }
 ];
-const MAX_Q = 50, MAX_GUESSES = 3;
+const MAX_Q = 60, MAX_GUESSES = 5;
 let game = null, screen = "intro", current = null, guessing = null, veiled = false, busy = false;
 
 function newGame() {
@@ -592,7 +615,7 @@ function guess(c) {
 }
 function wrongGuess() {
   game.rejected.add(guessing.name);
-  game.nextForced = game.answers.length + 8;
+  game.nextForced = game.answers.length + 6;
   orb.mood = "surprised"; orb.kick = 1;
   sfx("wrong");
   guessing = null;

@@ -12,6 +12,9 @@ PREFIX wikibase: <http://wikiba.se/ontology#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX schema: <http://schema.org/>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX psv: <http://www.wikidata.org/prop/statement/value/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
 `;
 
 // Seuils de notoriété (nombre d'articles Wikipédia dans toutes les langues)
@@ -65,6 +68,7 @@ const OCCUPATIONS = {
   Q4964182: "philosophe", Q19546: "religion", Q250867: "religion", Q4610556: "mannequin", Q3499072: "nourriture",
   Q177220: "chanteur", Q36834: "compositeur", Q1930187: "journaliste", Q39631: "medecin", Q170790: "maths", Q169470: "maths",
   Q2309784: "cyclisme", Q11513337: "athletisme", Q10843402: "natation", Q14089670: "rugby", Q11774891: "hockey",
+  Q2405480: "doubleur", Q628099: "foot entraineur", Q10841764: "voiture f1",
   Q13156709: "golf", Q10873124: "echecs", Q10871364: "baseball", Q12299841: "cricket", Q19204627: "footus", Q13365117: "handball"
 };
 // les métiers ci-dessus qui figurent deux fois : on fusionne
@@ -177,6 +181,31 @@ async function humans() {
   for (const [path, spec] of extra) {
     for (const r of await sparql(`SELECT DISTINCT ?p WHERE { ${HUMANS} ${path} }`)) tag(get(r.p, "h"), spec);
   }
+  const CLUBS = {
+    Q483020: "psg", Q132885: "om", Q704: "ol", Q180305: "monaco", Q8682: "realmadrid", Q7156: "barca", Q8701: "atletico",
+    Q18656: "manutd", Q1130849: "liverpool", Q9616: "chelsea", Q9617: "arsenal", Q50602: "mancity",
+    Q15789: "bayern", Q41420: "dortmund", Q1422: "juventus", Q1543: "milan", Q631: "inter"
+  };
+  const clubs = Object.keys(CLUBS).map(q => "wd:" + q).join(" ");
+  for (const r of await sparql(`SELECT DISTINCT ?p ?c WHERE { ${HUMANS} VALUES ?c { ${clubs} } ?p p:P54/ps:P54 ?c }  # tous les clubs de la carrière, pas seulement l'actuel`)) tag(get(r.p, "h"), CLUBS[qid(r.c)]);
+  const POS = { Q201330: "gardien", Q336286: "defenseur", Q193592: "milieu", Q280658: "attaquant" };
+  const pos = Object.keys(POS).map(q => "wd:" + q).join(" ");
+  for (const r of await sparql(`SELECT DISTINCT ?p ?c WHERE { ${HUMANS} VALUES ?c { ${pos} } { ?p wdt:P413 ?c } UNION { ?p wdt:P413/wdt:P279 ?c } }`)) tag(get(r.p, "h"), POS[qid(r.c)]);
+  for (const r of await sparql(`SELECT DISTINCT ?p WHERE { ${HUMANS} ?p wdt:P54/wdt:P118 wd:Q155223 }`)) tag(get(r.p, "h"), "nba basket");
+  const SAGAS = { Q642878: "filmmarvel", Q216930: "filmhp", Q462: "filmstarwars", Q22092344: "filmstarwars", Q2484680: "filmbond" };
+  const sagas = Object.keys(SAGAS).map(q => "wd:" + q).join(" ");
+  for (const r of await sparql(`SELECT DISTINCT ?p ?s WHERE { ${HUMANS} VALUES ?s { ${sagas} } ?film (wdt:P179|wdt:P8345|wdt:P1080|wdt:P361) ?s . ?film wdt:P161 ?p }`)) tag(get(r.p, "h"), SAGAS[qid(r.s)] + " acteur");
+  const INSTR = { Q6607: "guitare", Q5994: "piano", Q128309: "batterie", Q11404: "batterie" };
+  const instr = Object.keys(INSTR).map(q => "wd:" + q).join(" ");
+  for (const r of await sparql(`SELECT DISTINCT ?p ?i WHERE { ${HUMANS} VALUES ?i { ${instr} } { ?p wdt:P1303 ?i } UNION { ?p wdt:P1303/wdt:P279 ?i } }`)) tag(get(r.p, "h"), INSTR[qid(r.i)] + " musique");
+  const POSTS = { Q11696: "presidentus politique chefetat", Q191954: "presidentfr politique chefetat", Q18384454: "roifrance royal" };
+  const posts = Object.keys(POSTS).map(q => "wd:" + q).join(" ");
+  for (const r of await sparql(`SELECT DISTINCT ?p ?x WHERE { ${HUMANS} VALUES ?x { ${posts} } ?p wdt:P39 ?x }`)) tag(get(r.p, "h"), POSTS[qid(r.x)]);
+  for (const r of await sparql(`SELECT ?p ?v ?u WHERE { ${HUMANS} ?p p:P2048/psv:P2048 ?n . ?n wikibase:quantityAmount ?v ; wikibase:quantityUnit ?u }`)) {
+    const v = parseFloat(r.v), unit = qid(r.u);
+    const cm = unit === "Q11573" ? v * 100 : unit === "Q174728" ? v : null;
+    if (cm && cm > 100 && cm < 260) get(r.p, "h").height = cm;
+  }
   for (const r of await sparql(`SELECT ?p ?d WHERE { ${HUMANS} ?p wdt:P570 ?d }`)) {
     const e = get(r.p, "h");
     e.diedYear = parseInt(r.d.slice(0, r.d[0] === "-" ? 6 : 5));
@@ -273,9 +302,10 @@ function finalize(e) {
       if (b >= 1880 && b <= 1950) t.siecle20 = 1;
     }
     if (t.sport && b) t.retraite = b < 1982 ? 1 : b < 1990 ? 0.5 : 0;
+    if (e.height) { if (e.height >= 190) t.grand = 1; if (e.height < 165) t.petit = 1; }
     if (b !== undefined) {
       if (b < 1945) t.neavant1945 = 1;
-      if (b >= 1970) t.neapres1970 = 1;
+      for (const y of [1960, 1970, 1980, 1990, 2000]) if (b >= y) t["neapres" + y] = 1;
       if (e.diedYear !== undefined && e.diedYear - b < 45) t.mortjeune = 1;
     }
     if (t.musique && t.rap) t.musique = 1;
@@ -295,11 +325,11 @@ function finalize(e) {
 // Pour une entrée automatique : traits connus avec certitude (absents = « non ») et traits incomplets (absents = « peu probable »)
 const DEFAULTS = {
   h: {
-    zero: "animal chien chat robot monstre mythe anime jeu bd dessin disney marvel pouvoir proche famille toi ecole livre neavant1945 neapres1970 mortjeune nobel oscar grammy ballondor olympique chefetat starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc",
-    soft: "bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche assassine rock pop jazz classique chanteur compositeur journaliste medecin maths cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball groupe vivant jeune enfant vieux passe antiquite moyenage siecle20 francais europe anglais americain japon espagne italie allemagne russie afrique asie amlatine film serie musique rap sport foot basket tennis combat voiture retraite politique science art ecrivain acteur realisateur humour television internet espace royal militaire religion philosophe mannequin"
+    zero: "psg om ol monaco realmadrid barca atletico manutd liverpool chelsea arsenal mancity bayern dortmund juventus milan inter nba f1 filmmarvel filmhp filmstarwars filmbond presidentus presidentfr roifrance neapres1960 neapres1980 neapres1990 neapres2000 animal chien chat robot monstre mythe anime jeu bd dessin disney marvel pouvoir proche famille toi ecole livre neavant1945 neapres1970 mortjeune nobel oscar grammy ballondor olympique chefetat starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc",
+    soft: "gardien defenseur milieu attaquant entraineur doubleur guitare piano batterie grand petit bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche assassine rock pop jazz classique chanteur compositeur journaliste medecin maths cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball groupe vivant jeune enfant vieux passe antiquite moyenage siecle20 francais europe anglais americain japon espagne italie allemagne russie afrique asie amlatine film serie musique rap sport foot basket tennis combat voiture retraite politique science art ecrivain acteur realisateur humour television internet espace royal militaire religion philosophe mannequin"
   },
   f: {
-    zero: "reel vivant jeune proche famille toi retraite realisateur mannequin philosophe internet television nobel oscar grammy ballondor olympique chefetat groupe assassine rock pop jazz classique compositeur journaliste cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball",
+    zero: "psg om ol monaco realmadrid barca atletico manutd liverpool chelsea arsenal mancity bayern dortmund juventus milan inter nba f1 filmmarvel filmhp filmstarwars filmbond presidentus presidentfr roifrance neapres1960 neapres1980 neapres1990 neapres2000 gardien defenseur milieu attaquant entraineur doubleur guitare piano batterie reel vivant jeune proche famille toi retraite realisateur mannequin philosophe internet television nobel oscar grammy ballondor olympique chefetat groupe assassine rock pop jazz classique compositeur journaliste cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball",
     soft: "starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche humain animal chien chat robot monstre mythe film serie anime jeu livre bd dessin disney marvel pouvoir francais americain anglais japon espagne italie allemagne russie europe afrique asie amlatine"
   }
 };
@@ -345,7 +375,7 @@ async function main() {
     Object.entries(e.tags).filter(([, v]) => v > 0).map(([k, v]) => (v === 1 ? k : `~${k}`)).join(" ")
   ]);
   const out = `/* Généré par tools/build-wikidata.mjs le ${new Date().toISOString().slice(0, 10)} à partir de Wikidata (CC0). Ne pas modifier à la main. */
-const WIKI = ${JSON.stringify({ defaults: DEFAULTS, newKeys: "bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche neavant1945 neapres1970 mortjeune assassine nobel oscar grammy ballondor olympique chefetat groupe rock pop jazz classique chanteur compositeur journaliste medecin maths cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc italie allemagne russie afrique asie amlatine antiquite moyenage siecle20 ecrivain philosophe religion militaire realisateur mannequin tennis".split(" "), curated, entries })
+const WIKI = ${JSON.stringify({ defaults: DEFAULTS, newKeys: "psg om ol monaco realmadrid barca atletico manutd liverpool chelsea arsenal mancity bayern dortmund juventus milan inter gardien defenseur milieu attaquant entraineur nba f1 filmmarvel filmhp filmstarwars filmbond doubleur guitare piano batterie presidentus presidentfr roifrance grand neapres1960 neapres1980 neapres1990 neapres2000 petit bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche neavant1945 neapres1970 mortjeune assassine nobel oscar grammy ballondor olympique chefetat groupe rock pop jazz classique chanteur compositeur journaliste medecin maths cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc italie allemagne russie afrique asie amlatine antiquite moyenage siecle20 ecrivain philosophe religion militaire realisateur mannequin tennis".split(" "), curated, entries })
     .replace(/\],\[/g, "],\n[")};
 `;
   fs.writeFileSync("wikidata.js", out);
