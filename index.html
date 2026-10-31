@@ -108,6 +108,19 @@ h2.question { font-size: clamp(1.45rem, 3.8vw, 2.1rem); min-height: 2.4em; displ
 .mode { border: 0; background: transparent; color: var(--mist); border-radius: 999px; padding: 8px 16px; font-weight: 600; font-size: .9rem; transition: background .2s, color .2s; }
 .mode:hover { color: var(--parchment); }
 .mode[aria-selected="true"] { background: var(--brass); color: #1b1407; }
+.ask { width: 100%; max-width: 560px; display: grid; gap: 8px; text-align: left; }
+.ask label, .ask .hint { font-size: .85rem; color: var(--mist); }
+.ask input { width: 100%; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 12px; color: var(--parchment); padding: 12px 14px; font: inherit; }
+.ask input:focus { border-color: var(--brass); outline: none; }
+.qlist { display: grid; gap: 6px; }
+.qbtn { text-align: left; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 12px; padding: 10px 14px; font-size: .95rem; transition: border-color .15s, transform .15s; }
+.qbtn:hover { border-color: var(--brass); transform: translateX(3px); }
+.reply { display: flex; gap: 6px 12px; align-items: baseline; justify-content: center; flex-wrap: wrap; font-size: 1.02rem; max-width: 560px; }
+.reply span { color: var(--mist); }
+.reply b { font-family: var(--f-display); font-weight: 400; font-size: 1.6rem; }
+.reply.pop { animation: pop .35s cubic-bezier(.2,1.4,.4,1); }
+.guess-row { display: flex; gap: 8px; }
+.guess-row input { flex: 1; min-width: 0; }
 .universes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 560px; }
 .uni {
   background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 999px; padding: 6px 12px; font-size: .85rem;
@@ -341,7 +354,7 @@ const LOGIC_CHOSE = {
     }
   ),
   notIfNo: {},
-  notIfYes: { mangeable: ["objet"], objet: ["mangeable"] }
+  notIfYes: { mangeable: ["objet", "animal", "plante"], objet: ["mangeable"], animal: ["mangeable"], plante: ["mangeable"] }
 };
 
 const MODES = {
@@ -515,6 +528,15 @@ function ranked(post, limit) {
 }
 
 function pickQuestion(post) {
+  const scored = scoreQuestions(post);
+  if (!scored.length) return null;
+  // De la variété : on tire parmi les questions presque aussi utiles que la meilleure
+  const slack = game.answers.length === 0 ? 0.2 : 0.02;
+  const pool = scored.filter(s => s.h <= scored[0].h + slack).slice(0, 3);
+  return pool[Math.floor(Math.random() * pool.length)].a;
+}
+// Questions permises, de la plus utile à la moins utile (entropie attendue après la réponse)
+function scoreQuestions(post) {
   const k = known();
   // on ne raisonne que sur les candidats qui pèsent vraiment (99,9 % de la masse, 4000 au plus)
   const order = ranked(post);
@@ -539,12 +561,7 @@ function pickQuestion(post) {
     const h = py * (Math.log(py) - sy / py) + pn * (Math.log(pn) - sn / pn);
     scored.push({ a, h });
   }
-  if (!scored.length) return null;
-  scored.sort((x, y) => x.h - y.h);
-  // De la variété : on tire parmi les questions presque aussi utiles que la meilleure
-  const slack = game.answers.length === 0 ? 0.2 : 0.02;
-  const pool = scored.filter(s => s.h <= scored[0].h + slack).slice(0, 3);
-  return pool[Math.floor(Math.random() * pool.length)].a;
+  return scored.sort((x, y) => x.h - y.h);
 }
 
 function universeOf(c) {
@@ -662,6 +679,100 @@ function teach(name) {
   render();
 }
 
+/* ---------- Jeu inversé : le Devin choisit, le joueur pose les questions ---------- */
+let who = mem.who === "toi" ? "toi" : "devin";
+const start = () => (who === "toi" ? newReverse() : newGame());
+
+function newReverse() {
+  // le secret : une fiche faite main (des célébrités qu'on connaît ici) ou l'une des 500 personnalités les plus connues
+  const handmade = mode === "chose" ? CHARS.length : PERSONNAGES.length;
+  const pool = byFame().filter(i => !CHARS[i].t.proche && !CHARS[i].custom).filter((i, rank) => i < handmade || rank < 500);
+  game = { reverse: true, secret: pick(pool), answers: [], rejected: new Set(), guesses: 0, top: 0, last: null };
+  screen = "reverse"; orb.mood = "sure"; orb.conf = 0.04;
+  veiled = true; $("veil").textContent = "Afficher";
+  sfx("start");
+  render();
+}
+// Ce que le Devin répond, d'après sa fiche : il ne ment jamais, mais il avoue ce qu'il ignore
+function reply(attr) {
+  const c = CHARS[game.secret];
+  const v = value(c, attr);
+  const d = c.kind && DEFAULTS[c.kind];
+  const sure = attr in c.t || (d ? d.zero.has(attr) : !c.custom);
+  if (v >= 0.75) return { w: 1, label: "Oui", c: "var(--sage)" };
+  // un trait « peu probable » (métier, pays… que Wikidata aurait cité) vaut un non ; seul l'inconnu complet reste « je ne sais pas »
+  if (v <= 0.25) return { w: sure ? 0 : 0.15, label: "Non", c: "var(--rose)" };
+  return sure ? { w: 0.5, label: "En partie", c: "var(--brass)" } : { w: 0.5, label: "Je ne sais pas", c: "var(--mist)" };
+}
+function ask(attr) {
+  if (screen !== "reverse" || !attr) return;
+  const prev = game.answers.find(a => a.attr === attr);
+  if (prev) { say(`Tu me l'as déjà demandé : ${prev.label.toLowerCase()}.`); return; }
+  const r = reply(attr);
+  game.answers.push({ attr, w: r.w, label: r.label, c: r.c, inferred: [] });
+  game.last = { attr, ...r };
+  sfx("answer", r.w); orb.kick = 0.6;
+  say(r.label === "Oui" ? pick(["Oui.", "Exactement, oui.", "Eh oui !"]) : r.label === "Non" ? pick(["Non.", "Pas du tout.", "Non, raté."]) : r.label + ".");
+  updateReverse(true);
+}
+function revGuess(name) {
+  name = name.trim().replace(/\s+/g, " ");
+  if (screen !== "reverse" || !name) return;
+  const i = BY_NAME.has(name) ? BY_NAME.get(name) : CHARS.findIndex(c => norm(c.name) === norm(name));
+  game.guesses++;
+  if (i === game.secret) { game.found = true; return reveal(); }
+  if (i >= 0) game.rejected.add(CHARS[i].name);
+  orb.mood = "happy";
+  setTimeout(() => { if (screen === "reverse") orb.mood = "sure"; }, 1400);
+  sfx("wrong");
+  say(i >= 0 ? pick([`Non, ce n'est pas ${CHARS[i].name}.`, `${CHARS[i].name} ? Raté !`, `Hé hé, pas ${CHARS[i].name}.`]) : "Je ne connais pas ce nom. Essaie encore.");
+  $("guessIn").value = ""; $("guessSugg").innerHTML = "";
+  updateReverse(false);
+}
+function reveal() {
+  screen = "revealed";
+  mem.revGames = (mem.revGames || 0) + 1;
+  if (game.found) { mem.revWins = (mem.revWins || 0) + 1; orb.mood = "surprised"; sfx("win"); }
+  else { orb.mood = "happy"; sfx("lose"); }
+  saveMem();
+  render();
+  if (game.found) { const m = document.querySelector(".medal"); if (m) confetti(m); }
+}
+// nombre « effectif » de candidats encore plausibles : exp(entropie)
+function remaining(post) {
+  let h = 0;
+  for (const p of post) if (p > 1e-12) h -= p * Math.log(p);
+  return Math.max(1, Math.round(Math.exp(h)));
+}
+const qButtons = keys => keys.map(k => `<button class="qbtn" type="button" data-q="${k}">${esc(QS[k])}</button>`).join("");
+function bindQuestions() {
+  document.querySelectorAll(".qbtn").forEach(b => b.onclick = () => { $("askIn").value = ""; $("qlist").innerHTML = ""; ask(b.dataset.q); });
+}
+function filterQuestions() {
+  const q = norm($("askIn").value);
+  if (q.length < 2) { $("qlist").innerHTML = ""; return; }
+  const asked = new Set(game.answers.map(a => a.attr));
+  const hits = KEYS.filter(k => !asked.has(k) && norm(QS[k]).includes(q)).slice(0, 8);
+  $("qlist").innerHTML = hits.length ? qButtons(hits) : `<p class="nb-note">Aucune question ne contient ce mot. Essaie « sport », « film », « rouge »…</p>`;
+  bindQuestions();
+}
+function updateReverse(fresh) {
+  const post = posterior();
+  const n = game.answers.length, left = remaining(post);
+  $("revEyebrow").textContent = `${n} question${n > 1 ? "s" : ""} · environ ${left.toLocaleString("fr-FR")} possibilité${left > 1 ? "s" : ""}`;
+  orb.conf = Math.min(0.95, 1 / Math.sqrt(left));
+  const box = $("lastReply");
+  if (game.last) {
+    box.hidden = false;
+    box.innerHTML = `<span>${esc(QS[game.last.attr])}</span><b style="color:${game.last.c}">${game.last.label}</b>`;
+    if (fresh) { box.classList.remove("pop"); void box.offsetWidth; box.classList.add("pop"); }
+  }
+  $("revSugg").innerHTML = qButtons(scoreQuestions(post).slice(0, 4).map(s => s.a));
+  filterQuestions();
+  bindQuestions();
+  renderNotebook(ranked(post, 6).map(i => [post[i], i]));
+}
+
 /* ---------- Rendu ---------- */
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
@@ -717,16 +828,21 @@ function render() {
   if (screen === "intro") {
     const counts = MODE.universes.map(([k, label]) => [k, label, CHARS.filter(c => c.t[k] === 1).length]);
     const chose = mode === "chose";
+    const toi = who === "toi";
     html = `
-      <div class="modes" role="tablist" aria-label="Que vas-tu faire deviner ?">
+      <div class="modes" role="tablist" aria-label="Qui devine ?">
+        <button class="mode" type="button" role="tab" data-who="devin" aria-selected="${!toi}">Le Devin devine</button>
+        <button class="mode" type="button" role="tab" data-who="toi" aria-selected="${toi}">C'est toi qui devines</button>
+      </div>
+      <div class="modes" role="tablist" aria-label="Personnage ou chose ?">
         <button class="mode" type="button" role="tab" data-mode="personnage" aria-selected="${!chose}">Un personnage</button>
         <button class="mode" type="button" role="tab" data-mode="chose" aria-selected="${chose}">Un animal, un objet, un aliment</button>
       </div>
       <span class="eyebrow">${CHARS.length.toLocaleString("fr-FR")} ${chose ? "choses" : "personnages"} · ${KEYS.length} questions</span>
-      <h1>${chose ? "Pense à une chose.<br>Je vais la trouver." : "Pense à quelqu'un.<br>Je vais le trouver."}</h1>
-      <p class="lede">${chose ? "Un animal, un fruit, un légume, un plat, une boisson, une plante ou n'importe quel objet de la maison." : "Une star, un héros de manga, un personnage de dessin animé… ou même toi, ta mère ou ton meilleur ami."}</p>
+      <h1>${toi ? (chose ? "Je pense à une chose.<br>À toi de trouver laquelle." : "Je pense à quelqu'un.<br>À toi de trouver qui.") : chose ? "Pense à une chose.<br>Je vais la trouver." : "Pense à quelqu'un.<br>Je vais le trouver."}</h1>
+      <p class="lede">${toi ? "Pose-moi des questions, je réponds honnêtement. Propose un nom dès que tu crois savoir." : chose ? "Un animal, un fruit, un légume, un plat, une boisson, une plante ou n'importe quel objet de la maison." : "Une star, un héros de manga, un personnage de dessin animé… ou même toi, ta mère ou ton meilleur ami."}</p>
       <div class="ticker">Par exemple… <b id="tick"></b></div>
-      <div class="row"><button class="btn primary big" id="start" type="button">J'y pense, commence</button></div>
+      <div class="row"><button class="btn primary big" id="start" type="button">${toi ? "Choisis, je pose mes questions" : "J'y pense, commence"}</button></div>
       <div class="universes">${counts.map(([k, label, c]) => `<button class="uni" type="button" data-u="${k}">${label} <b>${c}</b></button>`).join("")}</div>`;
     say(mem.games ? pick(["Te revoilà ! Prêt pour une nouvelle partie ?", "J'ai appris depuis la dernière fois.", "Encore une ? Je suis en forme."]) : "Bonjour. Je lis dans les pensées. Tu veux essayer ?");
   } else if (screen === "question") {
@@ -777,6 +893,35 @@ function render() {
         <div class="row" style="justify-content:flex-start"><button class="btn primary" type="submit">Lui apprendre</button><button class="btn ghost" id="again" type="button">Rejouer sans apprendre</button></div>
       </form>`;
     say(pick(["Je donne ma langue au chat…", "Impossible ! Qui était-ce ?", "Tu m'as battu. Pour cette fois."]));
+  } else if (screen === "reverse") {
+    const chose = mode === "chose";
+    html = `
+      <span class="eyebrow" id="revEyebrow"></span>
+      <h2 class="question">${chose ? "J'ai choisi une chose." : "J'ai choisi un personnage."}<br>À toi de deviner.</h2>
+      <div class="reply" id="lastReply" aria-live="polite" hidden></div>
+      <div class="ask">
+        <label for="askIn">Pose une question</label>
+        <input id="askIn" placeholder="${chose ? "Tape un mot : mange, roues, eau, rouge…" : "Tape un mot : sport, chanteur, Japon, film…"}" autocomplete="off">
+        <div class="qlist" id="qlist"></div>
+        <span class="hint">Questions utiles en ce moment</span>
+        <div class="qlist" id="revSugg"></div>
+      </div>
+      <form class="learn" id="guessForm" autocomplete="off">
+        <label for="guessIn">Tu crois savoir ?</label>
+        <div class="guess-row"><input id="guessIn" placeholder="${chose ? "Ex. : girafe, pizza, guitare…" : "Ex. : Zinédine Zidane, Pikachu…"}"><button class="btn primary" type="submit">Proposer</button></div>
+        <div class="sugg" id="guessSugg"></div>
+      </form>
+      <div class="row"><button class="btn ghost" id="giveup" type="button">Je donne ma langue au chat</button></div>`;
+    say(pick([chose ? "J'ai quelque chose en tête… Interroge-moi." : "J'ai quelqu'un en tête… Interroge-moi.", "Mon choix est fait. Je ne mentirai pas.", "Pose tes questions, je réponds."]));
+  } else if (screen === "revealed") {
+    const c = CHARS[game.secret], n = game.answers.length;
+    html = `
+      <span class="eyebrow">${game.found ? `Trouvé en ${n} question${n > 1 ? "s" : ""} et ${game.guesses} proposition${game.guesses > 1 ? "s" : ""}` : "C'était…"}</span>
+      ${medal(c)}
+      <h1>${esc(c.name)}</h1>
+      <p class="lede">${esc(c.desc)}</p>
+      <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button><button class="btn" id="home" type="button">Accueil</button></div>`;
+    say(game.found ? pick(["Bravo, tu m'as démasqué !", "Impressionnant. Tu lis dans MES pensées ?", "Bien joué !"]) : pick(["Hé hé, trop fort pour toi ?", "La prochaine fois, peut-être !"]));
   } else if (screen === "taught") {
     html = `
       <span class="eyebrow">Leçon retenue</span>
@@ -790,6 +935,8 @@ function render() {
   card.classList.remove("fade", "busy"); void card.offsetWidth; card.classList.add("fade");
   if (screen === "question") typeInto($("q"), QS[current]);
   if (screen === "intro") startTicker();
+  if (screen === "reverse") updateReverse(false);
+  document.querySelector(".nb-head h3").textContent = screen === "reverse" ? "Mes pistes (aide)" : "Mes pistes";
   renderStats();
   bind();
 }
@@ -799,18 +946,49 @@ const byFame = () => fame && fame.length === CHARS.length ? fame : (fame = CHARS
 const chips = names => names.map(name => `<button class="chip" type="button" data-name="${esc(name)}">${esc(name)}</button>`).join("");
 function bind() {
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
-  on("start", newGame);
+  on("start", start);
+  on("giveup", reveal);
+  on("home", () => { screen = "intro"; orb.mood = "idle"; orb.conf = 0.04; render(); });
   on("undo", undo);
   on("yes", win);
   on("no", wrongGuess);
-  on("again", () => { if (screen === "lose") { mem.games++; saveMem(); } newGame(); });
+  on("again", () => {
+    if (game && game.reverse) return newReverse();
+    if (screen === "lose") { mem.games++; saveMem(); }
+    newGame();
+  });
   document.querySelectorAll(".ans").forEach(b => b.onclick = () => answer(+b.dataset.w, b));
   document.querySelectorAll(".chip").forEach(b => b.onclick = () => teach(b.dataset.name));
-  document.querySelectorAll(".mode").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".mode[data-who]").forEach(b => b.onclick = () => {
+    if (b.dataset.who === who) return;
+    who = b.dataset.who; mem.who = who; saveMem(); sfx("tick"); render();
+  });
+  document.querySelectorAll(".mode[data-mode]").forEach(b => b.onclick = () => {
     if (b.dataset.mode === mode) return;
     useMode(b.dataset.mode); mem.mode = mode; saveMem(); fame = null; sfx("tick"); render();
   });
   document.querySelectorAll(".uni").forEach(b => b.onclick = () => { tickerFilter = b.dataset.u; tickOnce(); sfx("tick"); });
+  const gf = $("guessForm");
+  if (gf) {
+    gf.onsubmit = e => { e.preventDefault(); revGuess($("guessIn").value); };
+    $("guessIn").oninput = () => {
+      const q = norm($("guessIn").value);
+      if (q.length < 2) { $("guessSugg").innerHTML = ""; return; }
+      const hits = [];
+      for (const i of byFame()) {
+        if (norm(CHARS[i].name).includes(q)) { hits.push(CHARS[i].name); if (hits.length >= 6) break; }
+      }
+      $("guessSugg").innerHTML = chips(hits);
+      $("guessSugg").querySelectorAll(".chip").forEach(b => b.onclick = () => revGuess(b.dataset.name));
+    };
+    $("askIn").oninput = filterQuestions;
+    $("askIn").onkeydown = e => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const first = $("qlist").querySelector(".qbtn");
+      if (first) first.click();
+    };
+  }
   const f = $("teachForm");
   if (f) {
     f.onsubmit = e => { e.preventDefault(); teach($("who").value); };
@@ -858,9 +1036,9 @@ function renderNotebook(order) {
     <span class="n">${esc(CHARS[i].name)}</span><span class="p">${pct(p)}</span>
     <div class="bar"><i data-w="${(p / max) * 100}"></i></div></li>`).join("");
   requestAnimationFrame(() => leads.querySelectorAll(".bar > i").forEach(i => { i.style.width = i.dataset.w + "%"; }));
-  const label = w => ANSWERS.find(a => a.w === w);
-  $("trail").innerHTML = game.answers.slice().reverse().map(({ attr, w }) =>
-    `<div><span title="${esc(QS[attr])}">${esc(QS[attr])}</span><b style="color:${label(w).c}">${label(w).label}</b></div>`).join("")
+  const label = a => a.label ? a : ANSWERS.find(x => x.w === a.w);
+  $("trail").innerHTML = game.answers.slice().reverse().map(a =>
+    `<div><span title="${esc(QS[a.attr])}">${esc(QS[a.attr])}</span><b style="color:${label(a).c}">${label(a).label}</b></div>`).join("")
     || `<div><span>Aucune réponse pour l'instant.</span></div>`;
 }
 $("veil").onclick = () => {
@@ -869,7 +1047,10 @@ $("veil").onclick = () => {
   $("leads").classList.toggle("veiled", veiled);
 };
 function renderStats() {
-  $("stats").textContent = mem.games ? `${mem.wins} trouvé${mem.wins > 1 ? "s" : ""} sur ${mem.games}` : "";
+  const parts = [];
+  if (mem.games) parts.push(`Devin : ${mem.wins}/${mem.games}`);
+  if (mem.revGames) parts.push(`toi : ${mem.revWins || 0}/${mem.revGames}`);
+  $("stats").textContent = parts.join(" · ");
 }
 function renderSound() {
   $("sound").textContent = mem.sound ? "Son : activé" : "Son : coupé";
@@ -886,7 +1067,7 @@ document.addEventListener("keydown", e => {
   } else if (screen === "guess") {
     if (e.key === "1" || e.key.toLowerCase() === "o") win();
     if (e.key === "5" || e.key.toLowerCase() === "n") wrongGuess();
-  } else if (screen === "intro" && e.key === "Enter") newGame();
+  } else if (screen === "intro" && e.key === "Enter") start();
 });
 
 /* ---------- Son (synthétisé, aucun fichier) ---------- */

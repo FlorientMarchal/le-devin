@@ -6,6 +6,7 @@ Pense à quelqu'un (une star, un héros de manga, toi-même, quelqu'un de ta fam
 
 ## Ce qu'il sait faire
 
+- **Deux façons de jouer** : le Devin devine ce à quoi tu penses, ou c'est lui qui choisit en secret et toi qui poses les questions (recherche par mot-clé, questions suggérées, nombre de possibilités restantes).
 - **Deux modes** : personnages, ou animaux, objets et aliments (334 choses, 100 questions).
 - **Plus de 28 000 personnages** et **195 questions** (dont clubs de foot, postes, taille, sagas de films, instruments) : environ 23 000 personnalités du monde entier et 4 600 personnages de séries, films, mangas, jeux vidéo, BD, livres et mythologies, tirés de Wikidata, plus près de 500 fiches faites main (avec toi et tes proches).
 - **Il connaît la notoriété** : un personnage célèbre est jugé plus probable qu'un inconnu.
