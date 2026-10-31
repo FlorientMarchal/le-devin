@@ -116,7 +116,11 @@ h2.question { font-size: clamp(1.45rem, 3.8vw, 2.1rem); min-height: 2.4em; displ
 .qbtn { text-align: left; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 12px; padding: 10px 14px; font-size: .95rem; transition: border-color .15s, transform .15s; }
 .qbtn:hover { border-color: var(--brass); transform: translateX(3px); }
 .reply { display: flex; gap: 6px 12px; align-items: baseline; justify-content: center; flex-wrap: wrap; font-size: 1.02rem; max-width: 560px; }
+.reply { flex-direction: column; align-items: center; gap: 4px; }
+.reply em { color: var(--mist); font-size: .9rem; }
+.reply div { display: flex; gap: 6px 12px; align-items: baseline; justify-content: center; flex-wrap: wrap; }
 .reply span { color: var(--mist); }
+.ask .hint#understood { color: var(--brass); min-height: 1.2em; }
 .reply b { font-family: var(--f-display); font-weight: 400; font-size: 1.6rem; }
 .reply.pop { animation: pop .35s cubic-bezier(.2,1.4,.4,1); }
 .guess-row { display: flex; gap: 8px; }
@@ -259,6 +263,7 @@ footer.foot kbd { font-family: var(--f-mono); border: 1px solid var(--ink-3); bo
 <script src="personnages.js"></script>
 <script src="wikidata.js"></script>
 <script src="choses.js"></script>
+<script src="comprendre.js"></script>
 <script>
 /* ---------- Données ---------- */
 function applyTags(t, tags, implique) {
@@ -307,7 +312,7 @@ const LOGIC_PERSONNAGE = {
   oneOf: [
     words("gardien defenseur milieu attaquant"), words("presidentus presidentfr"),
     words("francais americain japon canada australie turquie " + EUROPE + " bresil argentine mexique chine inde coree egypte"),
-    words("europe afrique amlatine"), words("humain animal robot"), words("chien chat"), words(SPORTS),
+    words("deurope damerique afrique asie"), words("europe francais"), words("maghreb afriquenoire egypte"), words("humain animal robot"), words("chien chat"), words(SPORTS),
     words("antiquite moyenage siecle20"), words("toi famille")
   ],
   needs: Object.assign(
@@ -323,6 +328,8 @@ const LOGIC_PERSONNAGE = {
     Object.fromEntries(words("filmmarvel filmhp filmstarwars filmbond doubleur").map(k => [k, ["acteur"]])),
     Object.fromEntries(words("guitare piano batterie").map(k => [k, ["musique"]])),
     {
+      europe: ["deurope"], europeest: ["europe"], amlatine: ["damerique"], maghreb: ["afrique"], afriquenoire: ["afrique"], moyenorient: ["asie"],
+      ski: ["sport"], volley: ["sport"], opera: ["musique"], cheforchestre: ["musique"],
       nba: ["basket"], f1: ["voiture"], presidentus: ["politique"], presidentfr: ["politique"], roifrance: ["royal"],
       egypte: ["afrique"], ballondor: ["foot"], chefetat: ["politique"], oscar: ["acteur", "realisateur", "film"],
       simpsons: ["dessin", "serie"], dc: ["marvel"], harrypotter: ["livre", "film", "pouvoir"], tolkien: ["livre", "film"],
@@ -417,6 +424,7 @@ const learned = () => (mode === "chose" ? mem.chose : mem);
 
 /* ---------- Moteur bayésien ---------- */
 const EPS = 0.05;
+const FAMOUS_BOOST = 0.4;
 const SOFT = 0.12;    // trait que Wikidata aurait probablement mentionné s'il était vrai
 let mode = mem.mode === "chose" ? "chose" : "personnage";
 let MODE, QS, KEYS, A, CHARS, BY_NAME, M, PRIOR;
@@ -459,7 +467,10 @@ function buildMatrix(from = 0) {
   for (let i = 0; i < N; i++) {
     const c = CHARS[i];
     // les personnages célèbres sont plus souvent choisis : a priori proportionnel à la notoriété
-    PRIOR[i] = 1.1 * Math.log(c.sl || 20) + 0.6 * Math.log1p(learned().plays[c.name] || 0);
+    // la notoriété compte, mais modérément : on doit aussi trouver les gens moins connus
+    PRIOR[i] = 0.7 * Math.log(c.sl || 20) + 0.6 * Math.log1p(learned().plays[c.name] || 0)
+      // petit coup de pouce aux fiches faites main, souvent pensées par les joueurs d'ici
+      + (c.kind || c.custom ? 0 : c.t.proche ? 1.5 : FAMOUS_BOOST);
     if (i < from) continue;
     for (let j = 0; j < A; j++) M[i * A + j] = EPS + (1 - 2 * EPS) * value(c, KEYS[j]);
   }
@@ -528,6 +539,8 @@ function ranked(post, limit) {
 }
 
 function pickQuestion(post) {
+  // on commence comme tout le monde : réel ou inventé ?
+  if (!game.answers.length && mode === "personnage") return "reel";
   const scored = scoreQuestions(post);
   if (!scored.length) return null;
   // De la variété : on tire parmi les questions presque aussi utiles que la meilleure
@@ -704,16 +717,60 @@ function reply(attr) {
   if (v <= 0.25) return { w: sure ? 0 : 0.15, label: "Non", c: "var(--rose)" };
   return sure ? { w: 0.5, label: "En partie", c: "var(--brass)" } : { w: 0.5, label: "Je ne sais pas", c: "var(--mist)" };
 }
-function ask(attr) {
-  if (screen !== "reverse" || !attr) return;
-  const prev = game.answers.find(a => a.attr === attr);
-  if (prev) { say(`Tu me l'as déjà demandé : ${prev.label.toLowerCase()}.`); return; }
-  const r = reply(attr);
-  game.answers.push({ attr, w: r.w, label: r.label, c: r.c, inferred: [] });
-  game.last = { attr, ...r };
-  sfx("answer", r.w); orb.kick = 0.6;
-  say(r.label === "Oui" ? pick(["Oui.", "Exactement, oui.", "Eh oui !"]) : r.label === "Non" ? pick(["Non.", "Pas du tout.", "Non, raté."]) : r.label + ".");
+// Répond à une ou plusieurs questions connues ; « text » est la question telle que le joueur l'a tapée
+function ask(attrs, text) {
+  if (screen !== "reverse") return;
+  attrs = [].concat(attrs).filter(Boolean);
+  if (!attrs.length) return;
+  const items = attrs.map(attr => {
+    const prev = game.answers.find(a => a.attr === attr);
+    if (prev) return { attr, label: prev.label, c: prev.c, again: true };
+    const r = reply(attr);
+    game.answers.push({ attr, w: r.w, label: r.label, c: r.c, inferred: [] });
+    return { attr, ...r };
+  });
+  game.last = { text: text || "", items };
+  const first = items[0];
+  sfx("answer", first.label === "Oui" ? 1 : first.label === "Non" ? 0 : 0.5); orb.kick = 0.6;
+  if (items.length > 1) say(items.map((it, i) => (i ? it.label.toLowerCase() : it.label)).join(" et ") + ".");
+  else if (first.again) say(`Tu me l'as déjà demandé : ${first.label.toLowerCase()}.`);
+  else say(first.label === "Oui" ? pick(["Oui.", "Exactement, oui.", "Eh oui !"]) : first.label === "Non" ? pick(["Non.", "Pas du tout.", "Non, raté."]) : first.label + ".");
   updateReverse(true);
+}
+// Les noms que le joueur peut proposer en toutes lettres dans sa question
+let nameCandidates = null;
+function candidates() {
+  if (nameCandidates && nameCandidates.mode === mode) return nameCandidates.list;
+  const famous = new Set(byFame().slice(0, 3000));
+  const list = CHARS.map((c, i) => ({ name: c.name, i, famous: famous.has(i) || i < PERSONNAGES.length }));
+  nameCandidates = { mode, list };
+  return list;
+}
+function freeQuestion(text) {
+  text = text.trim();
+  if (screen !== "reverse" || !text) return;
+  const named = detectName(text, candidates());
+  if (named !== null) { $("askIn").value = ""; $("understood").textContent = ""; return revGuess(CHARS[named].name); }
+  const { keys, close } = understand(text, mode, QS);
+  if (!keys.length) {
+    say(pick(["Je n'ai pas compris ta question.", "Hmm, je ne sais pas répondre à ça.", "Pose-la autrement ?"]));
+    $("understood").textContent = close.length ? "Je ne comprends pas. Tu voulais dire :" : "Je ne comprends pas. Essaie avec d'autres mots : sport, film, blond, français…";
+    $("qlist").innerHTML = qButtons(close);
+    bindQuestions();
+    return;
+  }
+  $("askIn").value = ""; $("understood").textContent = ""; $("qlist").innerHTML = "";
+  ask(keys, text);
+}
+// Aperçu en direct de ce que le Devin va comprendre
+function previewQuestion() {
+  const text = $("askIn").value.trim();
+  $("qlist").innerHTML = "";
+  if (text.length < 3) { $("understood").textContent = ""; return; }
+  const named = detectName(text, candidates());
+  if (named !== null) { $("understood").textContent = `Je comprends : tu proposes « ${CHARS[named].name} ».`; return; }
+  const { keys } = understand(text, mode, QS);
+  $("understood").textContent = keys.length ? "Je comprends : " + keys.map(k => `« ${QS[k]} »`).join(" et ") : "…";
 }
 function revGuess(name) {
   name = name.trim().replace(/\s+/g, " ");
@@ -746,15 +803,7 @@ function remaining(post) {
 }
 const qButtons = keys => keys.map(k => `<button class="qbtn" type="button" data-q="${k}">${esc(QS[k])}</button>`).join("");
 function bindQuestions() {
-  document.querySelectorAll(".qbtn").forEach(b => b.onclick = () => { $("askIn").value = ""; $("qlist").innerHTML = ""; ask(b.dataset.q); });
-}
-function filterQuestions() {
-  const q = norm($("askIn").value);
-  if (q.length < 2) { $("qlist").innerHTML = ""; return; }
-  const asked = new Set(game.answers.map(a => a.attr));
-  const hits = KEYS.filter(k => !asked.has(k) && norm(QS[k]).includes(q)).slice(0, 8);
-  $("qlist").innerHTML = hits.length ? qButtons(hits) : `<p class="nb-note">Aucune question ne contient ce mot. Essaie « sport », « film », « rouge »…</p>`;
-  bindQuestions();
+  document.querySelectorAll(".qbtn").forEach(b => b.onclick = () => { $("askIn").value = ""; $("qlist").innerHTML = ""; $("understood").textContent = ""; ask(b.dataset.q); });
 }
 function updateReverse(fresh) {
   const post = posterior();
@@ -764,11 +813,11 @@ function updateReverse(fresh) {
   const box = $("lastReply");
   if (game.last) {
     box.hidden = false;
-    box.innerHTML = `<span>${esc(QS[game.last.attr])}</span><b style="color:${game.last.c}">${game.last.label}</b>`;
+    box.innerHTML = (game.last.text ? `<em>« ${esc(game.last.text)} »</em>` : "") +
+      game.last.items.map(it => `<div><span>${esc(QS[it.attr])}</span><b style="color:${it.c}">${it.label}</b></div>`).join("");
     if (fresh) { box.classList.remove("pop"); void box.offsetWidth; box.classList.add("pop"); }
   }
-  $("revSugg").innerHTML = qButtons(scoreQuestions(post).slice(0, 4).map(s => s.a));
-  filterQuestions();
+  $("revSugg").innerHTML = qButtons(scoreQuestions(post).slice(0, 3).map(s => s.a));
   bindQuestions();
   renderNotebook(ranked(post, 6).map(i => [post[i], i]));
 }
@@ -899,13 +948,14 @@ function render() {
       <span class="eyebrow" id="revEyebrow"></span>
       <h2 class="question">${chose ? "J'ai choisi une chose." : "J'ai choisi un personnage."}<br>À toi de deviner.</h2>
       <div class="reply" id="lastReply" aria-live="polite" hidden></div>
-      <div class="ask">
-        <label for="askIn">Pose une question</label>
-        <input id="askIn" placeholder="${chose ? "Tape un mot : mange, roues, eau, rouge…" : "Tape un mot : sport, chanteur, Japon, film…"}" autocomplete="off">
+      <form class="ask" id="askForm" autocomplete="off">
+        <label for="askIn">Pose ta question comme tu veux</label>
+        <div class="guess-row"><input id="askIn" placeholder="${chose ? "Ex. : ça se mange ? il a des roues ? c'est rouge ?" : "Ex. : c'est un footballeur ? elle est blonde ? il a joué au PSG ?"}"><button class="btn primary" type="submit">Demander</button></div>
+        <span class="hint" id="understood" aria-live="polite"></span>
         <div class="qlist" id="qlist"></div>
-        <span class="hint">Questions utiles en ce moment</span>
+        <span class="hint">Besoin d'idées ?</span>
         <div class="qlist" id="revSugg"></div>
-      </div>
+      </form>
       <form class="learn" id="guessForm" autocomplete="off">
         <label for="guessIn">Tu crois savoir ?</label>
         <div class="guess-row"><input id="guessIn" placeholder="${chose ? "Ex. : girafe, pizza, guitare…" : "Ex. : Zinédine Zidane, Pikachu…"}"><button class="btn primary" type="submit">Proposer</button></div>
@@ -981,13 +1031,8 @@ function bind() {
       $("guessSugg").innerHTML = chips(hits);
       $("guessSugg").querySelectorAll(".chip").forEach(b => b.onclick = () => revGuess(b.dataset.name));
     };
-    $("askIn").oninput = filterQuestions;
-    $("askIn").onkeydown = e => {
-      if (e.key !== "Enter") return;
-      e.preventDefault();
-      const first = $("qlist").querySelector(".qbtn");
-      if (first) first.click();
-    };
+    $("askIn").oninput = previewQuestion;
+    $("askForm").onsubmit = e => { e.preventDefault(); freeQuestion($("askIn").value); };
   }
   const f = $("teachForm");
   if (f) {

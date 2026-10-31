@@ -68,6 +68,9 @@ const OCCUPATIONS = {
   Q4964182: "philosophe", Q19546: "religion", Q250867: "religion", Q4610556: "mannequin", Q3499072: "nourriture",
   Q177220: "chanteur", Q36834: "compositeur", Q1930187: "journaliste", Q39631: "medecin", Q170790: "maths", Q169470: "maths",
   Q2309784: "cyclisme", Q11513337: "athletisme", Q10843402: "natation", Q14089670: "rugby", Q11774891: "hockey",
+  Q5716684: "danseur", Q33231: "photographe", Q42973: "architecte", Q188094: "economiste", Q40348: "avocat",
+  Q131524: "~riche entrepreneur", Q11900058: "explorateur", Q4144610: "ski", Q15117302: "volley", Q3282637: "producteur film",
+  Q2865819: "opera musique chanteur", Q158852: "cheforchestre musique",
   Q2405480: "doubleur", Q628099: "foot entraineur", Q10841764: "voiture f1",
   Q13156709: "golf", Q10873124: "echecs", Q10871364: "baseball", Q12299841: "cricket", Q19204627: "footus", Q13365117: "handball"
 };
@@ -81,7 +84,14 @@ const COUNTRY = {
   Q884: "coree", Q423: "coree", Q31: "belgique", Q39: "suisse", Q55: "paysbas", Q29999: "paysbas", Q45: "portugal", Q36: "pologne",
   Q34: "nordique", Q20: "nordique", Q35: "nordique", Q33: "nordique", Q189: "nordique", Q41: "grece", Q11772: "grece europe",
   Q43: "turquie", Q12560: "turquie", Q79: "egypte afrique", Q11768: "egypte afrique", Q408: "australie", Q27: "irlande", Q40: "autriche", Q131964: "autriche",
-  Q1747689: "italie europe", Q2277: "italie europe", Q17167: "italie europe"
+  Q1747689: "italie europe", Q2277: "italie europe", Q17167: "italie europe",
+  Q1028: "maghreb", Q262: "maghreb", Q948: "maghreb", Q1016: "maghreb",
+  Q801: "moyenorient", Q794: "moyenorient", Q796: "moyenorient", Q822: "moyenorient", Q858: "moyenorient", Q851: "moyenorient",
+  Q810: "moyenorient", Q878: "moyenorient", Q817: "moyenorient", Q846: "moyenorient", Q805: "moyenorient",
+  Q212: "europeest", Q213: "europeest", Q33946: "europeest", Q28: "europeest", Q218: "europeest", Q403: "europeest", Q83286: "europeest",
+  Q36704: "europeest", Q224: "europeest", Q219: "europeest", Q214: "europeest", Q215: "europeest", Q184: "europeest", Q37: "europeest",
+  Q211: "europeest", Q191: "europeest", Q225: "europeest", Q236: "europeest", Q221: "europeest", Q222: "europeest", Q217: "europeest",
+  Q230: "europeest", Q399: "europeest", Q36: "pologne europeest"
 };
 const LATAM = new Set(["Q96", "Q155", "Q414", "Q739", "Q298", "Q419", "Q717", "Q241", "Q77", "Q736", "Q750", "Q733", "Q786", "Q1183", "Q774", "Q783", "Q792", "Q811", "Q800", "Q804", "Q790", "Q766"]);
 const CONTINENT = { Q46: "europe", Q15: "afrique", Q48: "asie", Q18: "amlatine" };
@@ -315,7 +325,10 @@ function finalize(e) {
   if (t.dc) t.marvel = 1;
   if (t.anglais || t.espagne || t.italie || t.allemagne || t.russie || t.belgique || t.suisse || t.paysbas || t.portugal || t.pologne || t.nordique || t.grece || t.irlande || t.autriche) t.europe = 1;
   if (t.bresil || t.argentine || t.mexique) t.amlatine = 1;
-  if (t.chine || t.inde || t.coree) t.asie = 1;
+  if (t.chine || t.inde || t.coree || t.moyenorient) t.asie = 1;
+  if (t.maghreb) t.afrique = 1;
+  if (t.afrique && !t.maghreb && !t.egypte) t.afriquenoire = 1;
+  if (t.europeest) t.europe = 1;
   if (t.japon) t.asie = 1;
   if (t.chien || t.chat) t.animal = 1;
   if (t.animal || t.robot) delete t.humain;
@@ -326,11 +339,11 @@ function finalize(e) {
 const DEFAULTS = {
   h: {
     zero: "psg om ol monaco realmadrid barca atletico manutd liverpool chelsea arsenal mancity bayern dortmund juventus milan inter nba f1 filmmarvel filmhp filmstarwars filmbond presidentus presidentfr roifrance neapres1960 neapres1980 neapres1990 neapres2000 animal chien chat robot monstre mythe anime jeu bd dessin disney marvel pouvoir proche famille toi ecole livre neavant1945 neapres1970 mortjeune nobel oscar grammy ballondor olympique chefetat starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc",
-    soft: "gardien defenseur milieu attaquant entraineur doubleur guitare piano batterie grand petit bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche assassine rock pop jazz classique chanteur compositeur journaliste medecin maths cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball groupe vivant jeune enfant vieux passe antiquite moyenage siecle20 francais europe anglais americain japon espagne italie allemagne russie afrique asie amlatine film serie musique rap sport foot basket tennis combat voiture retraite politique science art ecrivain acteur realisateur humour television internet espace royal militaire religion philosophe mannequin"
+    soft: "deurope damerique maghreb afriquenoire moyenorient europeest danseur photographe architecte economiste avocat entrepreneur explorateur producteur opera cheforchestre ski volley gardien defenseur milieu attaquant entraineur doubleur guitare piano batterie grand petit bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche assassine rock pop jazz classique chanteur compositeur journaliste medecin maths cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball groupe vivant jeune enfant vieux passe antiquite moyenage siecle20 francais europe anglais americain japon espagne italie allemagne russie afrique asie amlatine film serie musique rap sport foot basket tennis combat voiture retraite politique science art ecrivain acteur realisateur humour television internet espace royal militaire religion philosophe mannequin"
   },
   f: {
-    zero: "psg om ol monaco realmadrid barca atletico manutd liverpool chelsea arsenal mancity bayern dortmund juventus milan inter nba f1 filmmarvel filmhp filmstarwars filmbond presidentus presidentfr roifrance neapres1960 neapres1980 neapres1990 neapres2000 gardien defenseur milieu attaquant entraineur doubleur guitare piano batterie reel vivant jeune proche famille toi retraite realisateur mannequin philosophe internet television nobel oscar grammy ballondor olympique chefetat groupe assassine rock pop jazz classique compositeur journaliste cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball",
-    soft: "starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche humain animal chien chat robot monstre mythe film serie anime jeu livre bd dessin disney marvel pouvoir francais americain anglais japon espagne italie allemagne russie europe afrique asie amlatine"
+    zero: "danseur photographe architecte economiste avocat entrepreneur producteur opera cheforchestre ski volley psg om ol monaco realmadrid barca atletico manutd liverpool chelsea arsenal mancity bayern dortmund juventus milan inter nba f1 filmmarvel filmhp filmstarwars filmbond presidentus presidentfr roifrance neapres1960 neapres1980 neapres1990 neapres2000 gardien defenseur milieu attaquant entraineur doubleur guitare piano batterie reel vivant jeune proche famille toi retraite realisateur mannequin philosophe internet television nobel oscar grammy ballondor olympique chefetat groupe assassine rock pop jazz classique compositeur journaliste cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball",
+    soft: "deurope damerique maghreb afriquenoire moyenorient europeest starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche humain animal chien chat robot monstre mythe film serie anime jeu livre bd dessin disney marvel pouvoir francais americain anglais japon espagne italie allemagne russie europe afrique asie amlatine"
   }
 };
 
@@ -375,7 +388,7 @@ async function main() {
     Object.entries(e.tags).filter(([, v]) => v > 0).map(([k, v]) => (v === 1 ? k : `~${k}`)).join(" ")
   ]);
   const out = `/* Généré par tools/build-wikidata.mjs le ${new Date().toISOString().slice(0, 10)} à partir de Wikidata (CC0). Ne pas modifier à la main. */
-const WIKI = ${JSON.stringify({ defaults: DEFAULTS, newKeys: "psg om ol monaco realmadrid barca atletico manutd liverpool chelsea arsenal mancity bayern dortmund juventus milan inter gardien defenseur milieu attaquant entraineur nba f1 filmmarvel filmhp filmstarwars filmbond doubleur guitare piano batterie presidentus presidentfr roifrance grand neapres1960 neapres1980 neapres1990 neapres2000 petit bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche neavant1945 neapres1970 mortjeune assassine nobel oscar grammy ballondor olympique chefetat groupe rock pop jazz classique chanteur compositeur journaliste medecin maths cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc italie allemagne russie afrique asie amlatine antiquite moyenage siecle20 ecrivain philosophe religion militaire realisateur mannequin tennis".split(" "), curated, entries })
+const WIKI = ${JSON.stringify({ defaults: DEFAULTS, newKeys: "deurope damerique maghreb afriquenoire moyenorient europeest danseur photographe architecte economiste avocat entrepreneur explorateur producteur opera cheforchestre ski volley psg om ol monaco realmadrid barca atletico manutd liverpool chelsea arsenal mancity bayern dortmund juventus milan inter gardien defenseur milieu attaquant entraineur nba f1 filmmarvel filmhp filmstarwars filmbond doubleur guitare piano batterie presidentus presidentfr roifrance grand neapres1960 neapres1980 neapres1990 neapres2000 petit bresil argentine mexique canada chine inde coree belgique suisse paysbas portugal pologne nordique grece turquie egypte australie irlande autriche neavant1945 neapres1970 mortjeune assassine nobel oscar grammy ballondor olympique chefetat groupe rock pop jazz classique chanteur compositeur journaliste medecin maths cyclisme athletisme natation rugby hockey golf echecs baseball cricket footus handball starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho dc italie allemagne russie afrique asie amlatine antiquite moyenage siecle20 ecrivain philosophe religion militaire realisateur mannequin tennis".split(" "), curated, entries })
     .replace(/\],\[/g, "],\n[")};
 `;
   fs.writeFileSync("wikidata.js", out);

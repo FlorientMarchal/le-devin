@@ -199,7 +199,25 @@ const QUESTIONS = {
   batterie: "Joue-t-il de la batterie ?",
   presidentus: "A-t-il été président des États-Unis ?",
   presidentfr: "A-t-il été président de la République française ?",
-  roifrance: "A-t-il été roi de France ?"
+  roifrance: "A-t-il été roi de France ?",
+  deurope: "Vient-il d'Europe (France comprise) ?",
+  damerique: "Vient-il du continent américain (Nord ou Sud) ?",
+  maghreb: "Vient-il du Maghreb (Maroc, Algérie, Tunisie, Libye) ?",
+  afriquenoire: "Vient-il d'Afrique subsaharienne ?",
+  moyenorient: "Vient-il du Moyen-Orient ?",
+  europeest: "Vient-il d'Europe de l'Est ?",
+  danseur: "Est-ce un danseur ou une danseuse ?",
+  photographe: "Est-ce un photographe ?",
+  architecte: "Est-ce un architecte ?",
+  economiste: "Est-ce un économiste ?",
+  avocat: "Est-ce un avocat ?",
+  entrepreneur: "A-t-il créé ou dirigé une entreprise ?",
+  explorateur: "Est-ce un explorateur ?",
+  producteur: "Produit-il des films ?",
+  opera: "Chante-t-il de l'opéra ?",
+  cheforchestre: "Est-ce un chef d'orchestre ?",
+  ski: "Fait-il du ski ?",
+  volley: "Joue-t-il au volley ?"
 };
 
 const IMPLIQUE = {
@@ -212,6 +230,9 @@ const IMPLIQUE = {
   chine: ["asie"], inde: ["asie"], coree: ["asie"], belgique: ["europe"], suisse: ["europe"], paysbas: ["europe"], portugal: ["europe"], pologne: ["europe"],
   nordique: ["europe"], irlande: ["europe"], autriche: ["europe"],
   gardien: ["foot"], defenseur: ["foot"], milieu: ["foot"], attaquant: ["foot"], nba: ["basket"], f1: ["voiture"],
+  deurope: [], francais: ["deurope"], europe: ["deurope"], americain: ["damerique"], canada: ["damerique"], amlatine: ["damerique"],
+  maghreb: ["afrique"], afriquenoire: ["afrique"], moyenorient: ["asie"], europeest: ["europe"], ski: ["sport"], volley: ["sport"],
+  opera: ["musique"], cheforchestre: ["musique"], producteur: ["film"],
   presidentus: ["chefetat", "americain"], presidentfr: ["chefetat", "francais"], roifrance: ["royal", "francais"], basket: ["sport"], retraite: ["sport"], toi: ["proche"], famille: ["proche"]
 };
 
