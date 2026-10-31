@@ -69,13 +69,31 @@ button.brand { background: none; border: 0; padding: 0; text-align: left; }
 }
 .pill:hover { color: var(--parchment); border-color: var(--brass-deep); }
 
-.stage { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 28px; align-items: start; padding-top: 6px; }
-.stage.solo { grid-template-columns: minmax(0, 1fr); }
-@media (max-width: 880px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: start; padding-top: 6px; }
 
 .scene { display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0; }
 .orb-wrap { position: relative; width: min(320px, 72vw); aspect-ratio: 1; max-width: 100%; touch-action: manipulation; }
 .stage.solo .orb-wrap { width: min(360px, 78vw); }
+/* Téléphone : un Devin plus petit pour que la question reste visible sans défiler */
+@media (max-width: 560px) {
+  .app { padding-block: 10px 16px; }
+  .scene { gap: 10px; }
+  .orb-wrap { width: min(170px, 46vw); }
+  .stage.solo .orb-wrap { width: min(210px, 56vw); }
+  .bubble { font-size: .88rem; padding: 6px 12px; min-height: 2em; }
+  .card { gap: 14px; }
+  h2.question { min-height: 2em; }
+  .brand { font-size: 1.3rem; }
+  .brand small { display: none; }
+  .top-right { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .pill { white-space: nowrap; padding: 5px 10px; font-size: .66rem; }
+  .stats { font-size: .66rem; white-space: nowrap; }
+  .ans { padding: 10px 6px 9px; }
+}
+/* Écran tactile : pas de clavier, donc pas de raccourcis affichés */
+@media (hover: none) {
+  .ans .k, footer.foot { display: none; }
+}
 #orb { width: 100%; height: 100%; display: block; cursor: pointer; }
 
 .bubble {
@@ -143,16 +161,6 @@ h2.question { font-size: clamp(1.45rem, 3.8vw, 2.1rem); min-height: 2.4em; displ
   padding: 14px 8px 12px; display: flex; flex-direction: column; align-items: center; gap: 5px;
   transition: transform .18s cubic-bezier(.2,1.4,.4,1), border-color .18s, box-shadow .18s;
 }
-.choices { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; width: 100%; }
-.busy .choices { opacity: .45; pointer-events: none; }
-.opt {
-  position: relative; overflow: hidden; --c: var(--brass);
-  background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 999px; padding: 11px 18px; font-weight: 600;
-  display: inline-flex; align-items: baseline; gap: 8px; transition: transform .18s cubic-bezier(.2,1.4,.4,1), border-color .18s;
-}
-.opt:hover { border-color: var(--brass); transform: translateY(-2px); }
-.opt .k { font-family: var(--f-mono); font-size: .66rem; color: var(--mist); font-weight: 400; }
-.opt.dunno { color: var(--mist); --c: var(--mist); }
 .ans:hover { transform: translateY(-3px); border-color: var(--c); box-shadow: 0 10px 30px -12px var(--c); }
 .ans:active { transform: translateY(0) scale(.97); }
 .ans .w { font-weight: 600; font-size: .95rem; color: var(--c); }
@@ -192,29 +200,6 @@ h2.question { font-size: clamp(1.45rem, 3.8vw, 2.1rem); min-height: 2.4em; displ
 .guess-name { font-family: var(--f-display); font-size: clamp(2rem, 6vw, 3.2rem); line-height: 1.1; text-wrap: balance; }
 .guess-desc { color: var(--mist); margin-top: -10px; }
 .tag { font-family: var(--f-mono); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--brass); border: 1px solid var(--brass-deep); border-radius: 999px; padding: 3px 10px; }
-
-/* Carnet de pistes */
-aside.notebook {
-  background: color-mix(in srgb, var(--ink-2) 88%, transparent); backdrop-filter: blur(6px);
-  border: 1px solid var(--ink-3); border-radius: var(--r);
-  padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0;
-}
-.nb-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.nb-head h3 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 1.15rem; }
-.leads { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.leads li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; font-size: .9rem; }
-.mini { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-size: .72rem; color: #1b1407; }
-.leads .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.leads .p { font-family: var(--f-mono); font-size: .74rem; color: var(--mist); font-variant-numeric: tabular-nums; }
-.leads .bar { grid-column: 2 / span 2; }
-.bar { height: 4px; border-radius: 2px; background: var(--ink-3); overflow: hidden; }
-.bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #6fb3a8, var(--brass)); transition: width .6s cubic-bezier(.2,.8,.2,1); }
-.leads.veiled .n, .leads.veiled .mini { filter: blur(6px); user-select: none; }
-.trail { font-size: .82rem; color: var(--mist); display: grid; gap: 5px; max-height: 220px; overflow: auto; border-top: 1px solid var(--ink-3); padding-top: 12px; }
-.trail div { display: flex; justify-content: space-between; gap: 10px; }
-.trail span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.trail b { font-weight: 600; white-space: nowrap; }
-.nb-note { font-size: .78rem; color: var(--mist); margin: 0; }
 
 /* Apprentissage */
 .learn { width: 100%; max-width: 460px; display: grid; gap: 10px; text-align: left; }
@@ -257,15 +242,6 @@ footer.foot kbd { font-family: var(--f-mono); border: 1px solid var(--ink-3); bo
       <div class="bubble" id="bubble" aria-live="polite"></div>
       <div class="card" id="card"></div>
     </section>
-    <aside class="notebook" id="notebook" hidden>
-      <div class="nb-head">
-        <h3>Mes pistes</h3>
-        <button class="pill" id="veil" type="button">Masquer</button>
-      </div>
-      <ul class="leads" id="leads"></ul>
-      <div class="trail" id="trail"></div>
-      <p class="nb-note">Une réponse fausse ne me piège pas : chaque indice pèse, aucun n'élimine.</p>
-    </aside>
   </main>
 
   <footer class="foot">Clavier : <kbd>1</kbd>–<kbd>5</kbd> pour répondre, <kbd>⌫</kbd> pour revenir en arrière</footer>
@@ -379,89 +355,6 @@ const LOGIC_CHOSE = {
   notIfYes: { mangeable: ["objet", "animal", "plante"], objet: ["mangeable"], animal: ["mangeable"], plante: ["mangeable"] }
 };
 
-/* Questions à choix : une seule question au lieu d'une série de oui/non.
-   Chaque option fixe la réponse à plusieurs questions oui/non. « others » donne la valeur des options non choisies :
-   0 = forcément non, 0.2 = probablement non, null = on ne sait pas (plusieurs peuvent être vraies, comme les clubs).
-   cond.yes / cond.no : questions qui doivent avoir reçu « oui » / « non » avant de poser celle-ci. */
-function choiceGroup(id, text, cond, keys, labels, others, noneLabel, noneValue = 0) {
-  const options = keys.map((k, n) => {
-    const set = {};
-    if (others !== null) for (const o of keys) if (o !== k) set[o] = others;
-    set[k] = 1;
-    return { label: labels[n], def: { [k]: 1 }, set };
-  });
-  if (noneLabel) options.push({ label: noneLabel, def: Object.fromEntries(keys.map(k => [k, 0])), set: Object.fromEntries(keys.map(k => [k, noneValue])) });
-  return { id, text, cond, options };
-}
-const CHOICES_PERSONNAGE = [
-  choiceGroup("domaine", "Dans quel domaine est-il surtout connu ?", { yes: ["reel"] },
-    words("sport musique acteur politique science art internet television royal religion militaire entrepreneur"),
-    ["Sport", "Musique", "Cinéma ou séries", "Politique", "Sciences", "Art ou écriture", "Internet", "Télévision", "Royauté", "Religion", "Armée", "Affaires"],
-    0.35, "Autre chose", 0.2),  // 0.35 : on peut être connu dans plusieurs domaines (un pape est aussi chef d'État)
-  { id: "origine", text: "D'où vient-il ?", cond: { yes: ["reel"] }, options: [
-    { label: "France", set: { francais: 1, deurope: 1, europe: 0, damerique: 0, afrique: 0, asie: 0 } },
-    { label: "Ailleurs en Europe", set: { europe: 1, deurope: 1, francais: 0, damerique: 0, afrique: 0, asie: 0 } },
-    { label: "Amérique du Nord", set: { damerique: 1, amlatine: 0, deurope: 0, afrique: 0, asie: 0, australie: 0 } },
-    { label: "Amérique latine", set: { amlatine: 1, damerique: 1, deurope: 0, afrique: 0, asie: 0 } },
-    { label: "Afrique", set: { afrique: 1, deurope: 0, damerique: 0, asie: 0 } },
-    { label: "Asie ou Moyen-Orient", set: { asie: 1, deurope: 0, damerique: 0, afrique: 0 } },
-    { label: "Océanie", set: { australie: 1, deurope: 0, damerique: 0, afrique: 0, asie: 0 } }
-  ] },
-  { id: "naissance", text: "Quand est-il né ?", cond: { yes: ["reel"] }, options: [
-    { label: "Avant 1800", set: { passe: 1, neavant1945: 1, neapres1960: 0, siecle20: 0, vivant: 0, jeune: 0 } },
-    { label: "1800 – 1899", set: { passe: 1, neavant1945: 1, neapres1960: 0, vivant: 0, jeune: 0, antiquite: 0, moyenage: 0 } },
-    { label: "1900 – 1944", set: { neavant1945: 1, passe: 0, neapres1960: 0, siecle20: 1, jeune: 0 } },
-    { label: "1945 – 1959", set: { neavant1945: 0, neapres1960: 0, passe: 0, jeune: 0 } },
-    { label: "Années 60", set: { neapres1960: 1, neapres1970: 0, siecle20: 0, jeune: 0 } },
-    { label: "Années 70", set: { neapres1970: 1, neapres1980: 0, siecle20: 0, jeune: 0 } },
-    { label: "Années 80", set: { neapres1980: 1, neapres1990: 0, siecle20: 0 } },
-    { label: "Années 90", set: { neapres1990: 1, neapres2000: 0, siecle20: 0 } },
-    { label: "2000 ou après", set: { neapres2000: 1, siecle20: 0, jeune: 1 } }
-  ] },
-  choiceGroup("sport", "Quel sport ?", { yes: ["sport"] },
-    words("foot basket tennis combat voiture cyclisme athletisme natation rugby ski"),
-    ["Football", "Basket", "Tennis", "Sport de combat", "Sport automobile", "Cyclisme", "Athlétisme", "Natation", "Rugby", "Ski"], 0, "Un autre sport"),
-  choiceGroup("poste", "À quel poste joue-t-il ?", { yes: ["foot"] },
-    words("gardien defenseur milieu attaquant"), ["Gardien", "Défenseur", "Milieu", "Attaquant"], 0, "Il est entraîneur"),
-  choiceGroup("club", "Dans lequel de ces grands clubs a-t-il joué ?", { yes: ["foot"] }, words(CLUBS),
-    ["PSG", "OM", "OL", "Monaco", "Real Madrid", "Barça", "Atlético", "Manchester United", "Liverpool", "Chelsea", "Arsenal", "Manchester City", "Bayern", "Dortmund", "Juventus", "AC Milan", "Inter"],
-    0.3, "Aucun de ceux-là"),
-  choiceGroup("genre", "Quel genre de musique ?", { yes: ["musique"] },
-    words("rap rock pop jazz classique"), ["Rap", "Rock ou métal", "Pop", "Jazz", "Classique"], 0.35, "Autre", 0.2),
-  choiceGroup("cheveux", "De quelle couleur sont ses cheveux ?", { yes: ["humain"] },
-    words("blond roux chauve"), ["Blonds", "Roux", "Il est chauve"], 0, "Bruns ou noirs"),
-  choiceGroup("media", "Où apparaît-il surtout ?", { no: ["reel"] },
-    words("film serie anime jeu bd livre dessin mythe"),
-    ["Au cinéma", "Dans une série", "Manga ou anime", "Jeu vidéo", "BD ou comics", "Livre ou conte", "Dessin animé", "Mythologie ou légende"], null, "Ailleurs", 0.25),
-  choiceGroup("univers", "De quel univers vient-il ?", { no: ["reel"] },
-    words("marvel dc disney starwars harrypotter pokemon nintendo simpsons dragonball onepiece naruto tolkien got"),
-    ["Marvel", "DC", "Disney ou Pixar", "Star Wars", "Harry Potter", "Pokémon", "Nintendo", "Les Simpson", "Dragon Ball", "One Piece", "Naruto", "Seigneur des anneaux", "Game of Thrones"],
-    0, "Aucun de ceux-là")
-];
-const CHOICES_CHOSE = [
-  choiceGroup("categorie", "Qu'est-ce que c'est ?", {}, words("animal mangeable plante objet"),
-    ["Un animal", "Quelque chose qui se mange ou se boit", "Une plante", "Un objet"], 0),
-  choiceGroup("couleur", "Quelle est sa couleur principale ?", {}, words("rouge vert jaune orange blanc noir marron rose bleu"),
-    ["Rouge", "Vert", "Jaune", "Orange", "Blanc", "Noir", "Marron", "Rose", "Bleu"], 0.2, "Autre ou plusieurs", 0.3),
-  choiceGroup("typeanimal", "Quel genre d'animal ?", { yes: ["animal"] }, words("mammifere oiseau poisson reptile insecte"),
-    ["Un mammifère", "Un oiseau", "Un poisson", "Un reptile ou amphibien", "Un insecte ou une petite bête"], 0, "Autre"),
-  choiceGroup("habitat", "Où vit-il ?", { yes: ["animal"] }, words("domestique ferme savane foret eau froid"),
-    ["À la maison", "À la ferme", "Dans la savane", "En forêt", "Dans l'eau", "Dans le froid"], 0.2, "Ailleurs", 0.2),
-  choiceGroup("typealiment", "Quel genre d'aliment ?", { yes: ["mangeable"] }, words("fruit legume plat dessert boisson"),
-    ["Un fruit", "Un légume", "Un plat", "Un dessert ou une douceur", "Une boisson"], 0.2, "Autre (pain, fromage, sauce…)", 0),
-  choiceGroup("typeobjet", "Quel genre d'objet ?", { yes: ["objet"] }, words("vehicule electrique vetement meuble jouet instrument outil"),
-    ["Un moyen de transport", "Un appareil électrique", "Un vêtement ou accessoire", "Un meuble", "Un jouet ou un jeu", "Un instrument de musique", "Un outil"], 0.2, "Autre", 0.2),
-  { id: "piece", text: "Où le trouve-t-on ?", cond: { yes: ["objet"] }, options: [
-    { label: "Dans la cuisine", set: { cuisine: 1, maison: 1, sdb: 0 } },
-    { label: "Dans la salle de bain", set: { sdb: 1, maison: 1, cuisine: 0 } },
-    { label: "À l'école ou au bureau", set: { ecole: 1, cuisine: 0, sdb: 0 } },
-    { label: "Ailleurs dans la maison", set: { maison: 1, cuisine: 0, sdb: 0 } },
-    { label: "Dehors ou ailleurs", set: { maison: 0, cuisine: 0, sdb: 0 } }
-  ] },
-  choiceGroup("matiere", "En quoi est-il surtout fait ?", { yes: ["objet"] }, words("metal bois plastique verre tissu papier"),
-    ["Métal", "Bois", "Plastique", "Verre ou céramique", "Tissu", "Papier ou carton"], 0.2, "Autre", 0.2)
-];
-
 const AFTER = words("apres1970 apres1980 apres1990 apres2000 apres2010 apres2020");
 const LOGIC_OEUVRE = {
   pair: [["film", "serie"]],
@@ -477,42 +370,28 @@ const LOGIC_OEUVRE = {
   notIfNo: {},
   notIfYes: {}
 };
-const CHOICES_OEUVRE = [
-  { id: "type", text: "Qu'est-ce que c'est ?", cond: {}, options: [
-    { label: "Un film", set: { film: 1, serie: 0, animation: 0 } },
-    { label: "Un film d'animation", set: { film: 1, serie: 0, animation: 1 } },
-    { label: "Une série", set: { serie: 1, film: 0, animation: 0 } },
-    { label: "Une série animée", set: { serie: 1, film: 0, animation: 1 } },
-    { label: "Un anime japonais", set: { anime: 1, animation: 1, japon: 1 } }
-  ] },
-  choiceGroup("genre", "Quel est son genre principal ?", {},
-    words("comedie action horreur sf fantastique drame romance thriller policier guerre western musical aventure superheros biopic"),
-    ["Comédie", "Action", "Horreur", "Science-fiction", "Fantastique", "Drame", "Romance", "Thriller", "Policier", "Guerre", "Western", "Comédie musicale", "Aventure", "Super-héros", "Vie d'une vraie personne"],
-    0.35, "Autre", 0.25),
-  { id: "epoque", text: "Quand est-il sorti ?", cond: {}, options: [
-    { label: "Avant 1970", set: { apres1970: 0 } },
-    { label: "Années 70", set: { apres1970: 1, apres1980: 0 } },
-    { label: "Années 80", set: { apres1980: 1, apres1990: 0 } },
-    { label: "Années 90", set: { apres1990: 1, apres2000: 0 } },
-    { label: "Années 2000", set: { apres2000: 1, apres2010: 0 } },
-    { label: "Années 2010", set: { apres2010: 1, apres2020: 0 } },
-    { label: "2020 ou après", set: { apres2020: 1 } }
-  ] },
-  choiceGroup("pays", "De quel pays vient-il ?", {}, words("francais americain anglais japon coree"),
-    ["France", "États-Unis", "Royaume-Uni", "Japon", "Corée du Sud"], 0, "Un autre pays"),
-  choiceGroup("univers", "Fait-il partie d'un de ces univers ?", {}, words("marvel dc starwars harrypotter bond tolkien pokemon disney pixar ghibli"),
-    ["Marvel", "DC", "Star Wars", "Harry Potter", "James Bond", "Seigneur des anneaux", "Pokémon", "Disney", "Pixar", "Ghibli"], 0, "Aucun de ceux-là"),
-  choiceGroup("realisateur", "Qui l'a réalisé ?", { yes: ["film"] }, Object.keys(REALISATEURS), Object.values(REALISATEURS), 0, "Quelqu'un d'autre"),
-  choiceGroup("acteur", "Lequel de ces acteurs joue dedans ?", {}, Object.keys(ACTEURS), Object.values(ACTEURS), 0.3, "Aucun de ceux-là"),
-  choiceGroup("plateforme", "Sur quelle plateforme est-elle née ?", { yes: ["serie"] }, words("netflix hbo disneyplus canalplus"),
-    ["Netflix", "HBO", "Disney+", "Canal+"], 0, "Une chaîne de télé ou autre")
-];
+// Chance qu'un joueur connaisse la réponse (1 par défaut) : les détails pointus passent après les questions évidentes
+const hard = (keys, k) => Object.fromEntries(words(keys).map(x => [x, k]));
+const KNOW_PERSONNAGE = Object.assign(
+  hard("mortjeune assassine nobel grammy olympique doubleur producteur economiste avocat architecte photographe explorateur cheforchestre opera medecin journaliste maths philosophe mannequin danseur siecle20", 0.55),
+  hard("grand petit entrepreneur militaire religion realisateur filmmarvel filmhp filmstarwars filmbond guitare piano batterie retraite rouge bleu vert jaune rose noir blanc", 0.65),
+  hard(CLUBS + " gardien defenseur milieu attaquant entraineur", 0.7),
+  hard("neavant1945 neapres1960 neapres1970 neapres1980 neapres1990 neapres2000 antiquite moyenage vieux riche lunettes barbe chauve blond roux longs chapeau ecole", 0.8),
+  hard("europeest moyenorient afriquenoire maghreb " + EUROPE + " bresil argentine mexique chine inde coree egypte turquie australie canada", 0.85)
+);
+const KNOW_OEUVRE = Object.assign(
+  hard("palme cesar oscar oscarfilm minis", 0.55),
+  hard(Object.keys(REALISATEURS).join(" "), 0.55), hard(Object.keys(ACTEURS).join(" "), 0.6),
+  hard("adaptlivre adaptbd adaptjeu terminee longue netflix hbo disneyplus canalplus", 0.7),
+  hard("apres1970 apres1980 apres1990 apres2000 apres2010 apres2020 historique biopic ado medical", 0.85)
+);
+const KNOW_CHOSE = Object.assign(hard("moderne", 0.6), hard("cher nocturne tropical sousterre carnivore", 0.8));
 
 const MODES = {
   personnage: {
     questions: QUESTIONS,
     logic: LOGIC_PERSONNAGE,
-    choices: CHOICES_PERSONNAGE,
+    know: KNOW_PERSONNAGE,
     universes: [
       ["reel", "Personnes réelles"], ["serie", "Séries"], ["film", "Cinéma"], ["anime", "Manga"], ["jeu", "Jeux vidéo"], ["disney", "Disney & Pixar"],
       ["marvel", "Marvel & DC"], ["livre", "Livres & contes"], ["bd", "BD"], ["mythe", "Légendes"], ["proche", "Toi & tes proches"]
@@ -539,7 +418,7 @@ const MODES = {
   oeuvre: {
     questions: OEUVRES_QUESTIONS,
     logic: LOGIC_OEUVRE,
-    choices: CHOICES_OEUVRE,
+    know: KNOW_OEUVRE,
     universes: [
       ["film", "Films"], ["serie", "Séries"], ["animation", "Animation"], ["anime", "Anime"], ["superheros", "Super-héros"],
       ["comedie", "Comédies"], ["horreur", "Horreur"], ["sf", "Science-fiction"], ["francais", "Français"]
@@ -557,7 +436,7 @@ const MODES = {
   chose: {
     questions: CHOSES_QUESTIONS,
     logic: LOGIC_CHOSE,
-    choices: CHOICES_CHOSE,
+    know: KNOW_CHOSE,
     universes: [
       ["animal", "Animaux"], ["fruit", "Fruits"], ["legume", "Légumes"], ["plat", "Plats"], ["dessert", "Desserts"], ["boisson", "Boissons"],
       ["plante", "Plantes"], ["objet", "Objets"], ["vehicule", "Transports"], ["electrique", "Électronique"]
@@ -588,7 +467,7 @@ if (!mem.oeuvre) mem.oeuvre = { obs: {}, plays: {}, custom: {} };
 const learned = () => (mode === "personnage" ? mem : mem[mode]);
 
 /* ---------- Moteur bayésien ---------- */
-const EPS = 0.05;
+let EPS = 0.05;
 const FAMOUS_BOOST = 0.4;
 const SOFT = 0.12;    // trait que Wikidata aurait probablement mentionné s'il était vrai
 let mode = ["chose", "oeuvre"].includes(mem.mode) ? mem.mode : "personnage";
@@ -681,22 +560,19 @@ function allowed(a, k) {
 
 function posterior() {
   const N = CHARS.length, logs = new Float64Array(N);
-  // réponses oui/non (et leurs déductions) ; une question à choix compte par la probabilité de l'option choisie
-  const binary = new Map(), chosen = [];
+  // réponses (et leurs déductions : « homme » ⇒ pas « femme »…)
+  const binary = new Map();
   for (const a of game.answers) {
-    if (a.attr.startsWith("choice:")) { if (a.choice != null) chosen.push([choiceOptions(groupOf(a.attr)), a.choice]); continue; }
     binary.set(a.attr, a.w);
     for (const d of a.inferred || []) if (!binary.has(d.attr)) binary.set(d.attr, d.w);
   }
   const ans = [...binary].map(([attr, w]) => [KEYS.indexOf(attr), w]).filter(([j]) => j >= 0);
-  const buf = new Float64Array(32);
   let m = -Infinity;
   for (let i = 0; i < N; i++) {
     if (game.rejected.has(CHARS[i].name)) { logs[i] = -Infinity; continue; }
     let l = PRIOR[i];
     const row = i * A;
     for (const [j, w] of ans) { const p = M[row + j]; l += Math.log(w * p + (1 - w) * (1 - p)); }
-    for (const [opts, o] of chosen) { const tot = optionScores(opts, row, buf); l += Math.log(buf[o] / tot); }
     logs[i] = l;
     if (l > m) m = l;
   }
@@ -712,101 +588,58 @@ function ranked(post, limit) {
   return limit ? idx.slice(0, limit) : idx;
 }
 
+/* Choix de la question. Réglages comparés en simulation :
+   CRITERION — "entropy" (réduire l'incertitude moyenne) ou "gini" (départager d'abord les favoris)
+   LIVE_MASS — part de la probabilité sur laquelle on raisonne (les candidats les plus probables)
+   USE_KNOW  — pondérer par la chance que le joueur connaisse la réponse (MODE.know) */
+// Retenu après comparaison en simulation (les autres variantes ne faisaient pas mieux) : entropie + pertinence
+let CRITERION = "entropy", LIVE_MASS = 0.999, USE_KNOW = true;
+const knowOf = a => (USE_KNOW && MODE.know && MODE.know[a]) || 1;
+
 function pickQuestion(post) {
   // on commence comme tout le monde : réel ou inventé ?
   if (!game.answers.length && mode === "personnage") return "reel";
   const scored = scoreQuestions(post);
   if (!scored.length) return null;
   // De la variété : on tire parmi les questions presque aussi utiles que la meilleure
-  const slack = game.answers.length === 0 ? 0.2 : 0.02;
-  const pool = scored.filter(s => s.h <= scored[0].h + slack).slice(0, 3);
+  const slack = game.answers.length === 0 ? 0.85 : 0.97;
+  const best = scored[0].gain;
+  const pool = scored.filter(s => s.gain >= best - Math.abs(best) * (1 - slack)).slice(0, 3);
   return pool[Math.floor(Math.random() * pool.length)].a;
 }
-// Questions permises, de la plus utile à la moins utile (entropie attendue après la réponse)
+// Questions permises, de la plus utile à la moins utile (gain d'information attendu)
 function scoreQuestions(post) {
   const k = known();
-  // on ne raisonne que sur les candidats qui pèsent vraiment (99,9 % de la masse, 4000 au plus)
+  // on ne raisonne que sur les candidats qui pèsent vraiment
   const order = ranked(post);
   const live = [];
   let mass = 0;
-  for (const i of order) { live.push(i); mass += post[i]; if (mass > 0.999 || live.length >= 4000) break; }
+  for (const i of order) { live.push(i); mass += post[i]; if (mass > LIVE_MASS || live.length >= 4000) break; }
   const q = live.map(i => post[i] / mass);
+  let H0 = 0, G0 = 0;
+  for (const v of q) { if (v > 0) H0 -= v * Math.log(v); G0 += v * v; }
   const scored = [];
   for (let j = 0; j < A; j++) {
     const a = KEYS[j];
     if (!allowed(a, k)) continue;
-    // H(oui) = log py − Σ y log y / py, idem pour non
-    let py = 0, sy = 0, sn = 0;
+    // y, n : masse de chaque candidat dans la branche « oui » / « non »
+    let py = 0, sy = 0, sn = 0, qy = 0, qn = 0;
     for (let x = 0; x < live.length; x++) {
       const p = M[live[x] * A + j], y = q[x] * p, n = q[x] - y;
       py += y;
       if (y > 0) sy += y * Math.log(y);
       if (n > 0) sn += n * Math.log(n);
+      qy += y * y; qn += n * n;
     }
     const pn = 1 - py;
     if (py < 0.004 || pn < 0.004) continue;
-    const h = py * (Math.log(py) - sy / py) + pn * (Math.log(pn) - sn / pn);
-    scored.push({ a, h });
+    let gain;
+    if (CRITERION === "gini") gain = qy / py + qn / pn - G0;          // baisse attendue de l'indice de Gini
+    else gain = H0 - (py * (Math.log(py) - sy / py) + pn * (Math.log(pn) - sn / pn));  // baisse attendue de l'entropie
+    scored.push({ a, gain: gain * knowOf(a) });
   }
-  // questions à choix : même calcul, avec une branche par option
-  for (const g of MODE.choices || []) {
-    if (!choiceAllowed(g, k)) continue;
-    const opts = choiceOptions(g);
-    const P = new Float64Array(opts.length), SL = new Float64Array(opts.length), L = new Float64Array(opts.length);
-    for (let x = 0; x < live.length; x++) {
-      const tot = optionScores(opts, live[x] * A, L);
-      for (let o = 0; o < opts.length; o++) {
-        const y = q[x] * L[o] / tot;
-        P[o] += y;
-        if (y > 0) SL[o] += y * Math.log(y);
-      }
-    }
-    let h = 0, maxP = 0;
-    for (let o = 0; o < opts.length; o++) if (P[o] > 0) { h += P[o] * Math.log(P[o]) - SL[o]; maxP = Math.max(maxP, P[o]); }
-    if (maxP > 0.96) continue;
-    scored.push({ a: "choice:" + g.id, h, choice: true });
-  }
-  return scored.sort((x, y) => x.h - y.h);
+  return scored.sort((x, y) => y.gain - x.gain);
 }
-// options d'une question à choix, complétées par les déductions et traduites en colonnes de la matrice
-const choiceCache = {};
-function optionScores(opts, row, out) {
-  let tot = 0;
-  for (let o = 0; o < opts.length; o++) {
-    let l = 1;
-    for (const [j, w] of opts[o].cols) { const p = M[row + j]; l *= w * p + (1 - w) * (1 - p); }
-    out[o] = l; tot += l;
-  }
-  return tot;
-}
-function expandSet(set) {
-  const full = { ...set };
-  for (const [a, w] of Object.entries(set)) for (const d of inferFrom(a, w)) if (!(d.attr in full)) full[d.attr] = d.w;
-  return full;
-}
-function choiceOptions(g) {
-  const key = mode + ":" + g.id;
-  if (!choiceCache[key]) choiceCache[key] = g.options.map(o => {
-    // « cols » : le critère qui définit l'option, tolérant (0,92 / 0,08) en cas d'erreur du joueur ;
-    // « set » : tout ce qu'on en déduit pour ne pas reposer de questions déjà tranchées
-    const def = o.def || o.set;
-    const cols = Object.entries(def).map(([a, w]) => [KEYS.indexOf(a), Math.min(0.92, Math.max(0.08, w))]).filter(([j]) => j >= 0);
-    return { label: o.label, set: expandSet(o.set), cols };
-  });
-  return choiceCache[key];
-}
-function choiceAllowed(g, k) {
-  if (k.has("choice:" + g.id)) return false;
-  const yes = x => k.has(x) && k.get(x) >= 0.75, no = x => k.has(x) && k.get(x) <= 0.25;
-  if (g.cond.yes && !g.cond.yes.every(yes)) return false;
-  if (g.cond.no && !g.cond.no.every(no)) return false;
-  // déjà tranchée par un « oui » (« Omar Sy joue dedans » ⇒ pas de « lequel de ces acteurs ? »)
-  if (g.options.some(o => { const d = Object.entries(o.def || o.set); return d.length === 1 && d[0][1] === 1 && yes(d[0][0]); })) return false;
-  // inutile si toutes ses réponses sont déjà connues
-  return g.options.some(o => Object.keys(o.set).some(x => !k.has(x)));
-}
-const groupOf = a => (MODE.choices || []).find(g => "choice:" + g.id === a);
-const questionText = a => (a.startsWith("choice:") ? groupOf(a).text : QS[a]);
 
 function universeOf(c) {
   const hit = MODE.labels.find(([k]) => c.t[k] === 1);
@@ -822,7 +655,7 @@ const ANSWERS = [
   { w: 0, label: "Non", key: "5", c: "var(--rose)", g: 12 }
 ];
 const MAX_Q = 60, MAX_GUESSES = 5;
-let game = null, screen = "intro", current = null, guessing = null, veiled = false, busy = false;
+let game = null, screen = "intro", current = null, guessing = null, busy = false;
 
 function newGame() {
   game = { answers: [], rejected: new Set(), guesses: 0, nextForced: 25, top: 0 };
@@ -838,7 +671,6 @@ function next() {
   const n = game.answers.length;
   game.top = topP;
   orb.conf = topP;
-  renderNotebook(top.map(i => [post[i], i]));
   // proposer quand un candidat domine nettement, ou quand on a posé assez de questions
   const dominant = (topP > 0.8 || (topP > 0.6 && topP > 6 * secondP)) && n >= 6;
   if (dominant || n >= game.nextForced || top.length === 1) return guess(CHARS[topI]);
@@ -851,23 +683,11 @@ function next() {
 }
 
 function answer(w, fromEl) {
-  if (screen !== "question" || busy || current.startsWith("choice:")) return;
+  if (screen !== "question" || busy) return;
   game.answers.push({ attr: current, w, inferred: inferFrom(current, w) });
   const a = ANSWERS.find(x => x.w === w);
   if (fromEl) { ripple(fromEl); fly(fromEl, a); }
   sfx("answer", w);
-  thinkThenNext();
-}
-// o : numéro de l'option choisie, ou null pour « je ne sais pas »
-function answerChoice(o, fromEl) {
-  if (screen !== "question" || busy || !current.startsWith("choice:")) return;
-  if (o === null) game.answers.push({ attr: current, w: 0.5, label: "Je ne sais pas", c: "var(--mist)", inferred: [] });
-  else {
-    const opt = choiceOptions(groupOf(current))[o];
-    game.answers.push({ attr: current, w: 1, choice: o, label: opt.label, c: "var(--brass)", inferred: Object.entries(opt.set).map(([attr, w]) => ({ attr, w })) });
-  }
-  if (fromEl) { ripple(fromEl); fly(fromEl, { c: "var(--brass)" }); }
-  sfx("answer", o === null ? 0.5 : 1);
   thinkThenNext();
 }
 function thinkThenNext() {
@@ -921,7 +741,7 @@ function learn(name, desc) {
   }
   const o = learned().obs[name] || (learned().obs[name] = {});
   for (const [attr, w] of known()) {
-    if (attr.startsWith("choice:") || (w > 0.25 && w < 0.75 && w !== 0.5)) continue;
+    if (w > 0.25 && w < 0.75 && w !== 0.5) continue;
     if (w === 0.5) continue;
     const cur = o[attr] || [0, 0];
     o[attr] = [cur[0] + w, cur[1] + 1];
@@ -951,7 +771,6 @@ function newReverse() {
     : CHARS.map((_, i) => i).filter(i => i < (mode === "chose" ? CHOSES.length : PERSONNAGES.length) && !CHARS[i].t.proche);
   game = { reverse: true, secret: pick(pool), answers: [], rejected: new Set(), guesses: 0, top: 0, last: null };
   screen = "reverse"; orb.mood = "sure"; orb.conf = 0.04;
-  veiled = true; $("veil").textContent = "Afficher";
   sfx("start");
   render();
 }
@@ -1067,9 +886,8 @@ function updateReverse(fresh) {
       game.last.items.map(it => `<div><span>${esc(QS[it.attr])}</span><b style="color:${it.c}">${it.label}</b></div>`).join("");
     if (fresh) { box.classList.remove("pop"); void box.offsetWidth; box.classList.add("pop"); }
   }
-  $("revSugg").innerHTML = qButtons(scoreQuestions(post).filter(s => !s.choice).slice(0, 3).map(s => s.a));
+  $("revSugg").innerHTML = qButtons(scoreQuestions(post).slice(0, 3).map(s => s.a));
   bindQuestions();
-  renderNotebook(ranked(post, 6).map(i => [post[i], i]));
 }
 
 // Retour à l'accueil pour choisir un autre thème (abandonne la partie en cours)
@@ -1159,7 +977,6 @@ function render() {
   const card = $("card");
   clearInterval(typer); clearInterval(tickerTimer);
   $("stage").classList.toggle("solo", screen === "intro");
-  $("notebook").hidden = screen === "intro";
   $("homeTop").hidden = screen === "intro";
   const n = game ? game.answers.length : 0;
   let html = "";
@@ -1185,17 +1002,15 @@ function render() {
       <div class="universes">${counts.map(([k, label, c]) => `<button class="uni" type="button" data-u="${k}">${label} <b>${c}</b></button>`).join("")}</div>`;
     say(mem.games ? pick(["Te revoilà ! Prêt pour une nouvelle partie ?", "J'ai appris depuis la dernière fois.", "Encore une ? Je suis en forme."]) : "Bonjour. Je lis dans les pensées. Tu veux essayer ?");
   } else if (screen === "question") {
-    const g = current.startsWith("choice:") ? groupOf(current) : null;
     html = `
       <span class="eyebrow">Question ${n + 1} · certitude ${Math.round(game.top * 100)} %</span>
       <h2 class="question" id="q"></h2>
-      ${g ? `<div class="choices">${choiceOptions(g).map((o, x) => `<button class="opt" type="button" data-o="${x}">${esc(o.label)}${x < 9 ? `<span class="k">${x + 1}</span>` : ""}</button>`).join("")}
-        <button class="opt dunno" type="button" data-o="">Je ne sais pas<span class="k">0</span></button></div>` : `<div class="answers">${ANSWERS.map(a => `
+      <div class="answers">${ANSWERS.map(a => `
         <button class="ans ${a.cls || ""}" type="button" data-w="${a.w}" style="--c:${a.c}">
           <span class="glyph"><i style="width:${a.g}px;height:${a.g}px"></i></span>
           <span class="w">${a.label}</span><span class="k">${a.key}</span>
         </button>`).join("")}
-      </div>`}
+      </div>
       <div class="row"><button class="btn ghost" id="undo" type="button" ${n ? "" : "disabled"}>← Revenir à la question précédente</button></div>`;
     say(remark());
   } else if (screen === "guess") {
@@ -1274,10 +1089,9 @@ function render() {
   }
   card.innerHTML = html;
   card.classList.remove("fade", "busy"); void card.offsetWidth; card.classList.add("fade");
-  if (screen === "question") typeInto($("q"), questionText(current));
+  if (screen === "question") typeInto($("q"), QS[current]);
   if (screen === "intro") startTicker();
   if (screen === "reverse") updateReverse(false);
-  document.querySelector(".nb-head h3").textContent = screen === "reverse" ? "Mes pistes (aide)" : "Mes pistes";
   renderStats();
   bind();
 }
@@ -1299,7 +1113,6 @@ function bind() {
     newGame();
   });
   document.querySelectorAll(".ans").forEach(b => b.onclick = () => answer(+b.dataset.w, b));
-  document.querySelectorAll(".opt").forEach(b => b.onclick = () => answerChoice(b.dataset.o === "" ? null : +b.dataset.o, b));
   document.querySelectorAll(".chip").forEach(b => b.onclick = () => teach(b.dataset.name));
   document.querySelectorAll(".mode[data-who]").forEach(b => b.onclick = () => {
     if (b.dataset.who === who) return;
@@ -1363,26 +1176,6 @@ function tickOnce() {
 }
 function startTicker() { tickerFilter = null; tickOnce(); tickerTimer = setInterval(tickOnce, 1700); }
 
-function renderNotebook(order) {
-  const top = order.slice(0, 6);
-  const max = top[0][0] || 1;
-  const leads = $("leads");
-  leads.className = "leads" + (veiled ? " veiled" : "");
-  leads.innerHTML = top.map(([p, i]) => `
-    <li><span class="mini" style="background:${swatch(CHARS[i].name)}">${esc(initials(CHARS[i].name))}</span>
-    <span class="n">${esc(CHARS[i].name)}</span><span class="p">${pct(p)}</span>
-    <div class="bar"><i data-w="${(p / max) * 100}"></i></div></li>`).join("");
-  requestAnimationFrame(() => leads.querySelectorAll(".bar > i").forEach(i => { i.style.width = i.dataset.w + "%"; }));
-  const label = a => a.label ? a : ANSWERS.find(x => x.w === a.w);
-  $("trail").innerHTML = game.answers.slice().reverse().map(a =>
-    `<div><span title="${esc(questionText(a.attr))}">${esc(questionText(a.attr))}</span><b style="color:${label(a).c}">${label(a).label}</b></div>`).join("")
-    || `<div><span>Aucune réponse pour l'instant.</span></div>`;
-}
-$("veil").onclick = () => {
-  veiled = !veiled;
-  $("veil").textContent = veiled ? "Afficher" : "Masquer";
-  $("leads").classList.toggle("veiled", veiled);
-};
 function renderStats() {
   const parts = [];
   if (mem.games) parts.push(`Devin : ${mem.wins}/${mem.games}`);
@@ -1397,11 +1190,7 @@ $("sound").onclick = () => { mem.sound = !mem.sound; saveMem(); renderSound(); s
 
 document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT") return;
-  if (screen === "question" && current.startsWith("choice:")) {
-    if (e.key === "0") answerChoice(null, document.querySelector(".opt.dunno"));
-    else if (/^[1-9]$/.test(e.key)) { const b = document.querySelector(`.opt[data-o="${+e.key - 1}"]`); if (b) answerChoice(+e.key - 1, b); }
-    else if (e.key === "Backspace") { e.preventDefault(); undo(); }
-  } else if (screen === "question") {
+  if (screen === "question") {
     const a = ANSWERS.find(a => a.key === e.key);
     if (a) answer(a.w, document.querySelector(`.ans[data-w="${a.w}"]`));
     else if (e.key === "Backspace") { e.preventDefault(); undo(); }

@@ -11,9 +11,9 @@ Pense à quelqu'un (une star, un héros de manga, toi-même, quelqu'un de ta fam
 - **Plus de 28 000 personnages** et **213 questions** (dont régions du monde, métiers, clubs de foot, postes, taille, sagas de films, instruments) : environ 23 000 personnalités du monde entier et 4 600 personnages de séries, films, mangas, jeux vidéo, BD, livres et mythologies, tirés de Wikidata, plus près de 500 fiches faites main (avec toi et tes proches).
 - **Il connaît la notoriété** : un personnage célèbre est jugé plus probable qu'un inconnu.
 - **Il tolère les erreurs** : chaque réponse ajuste une probabilité (raisonnement bayésien), aucune n'élimine un personnage d'office.
-- **Il pose la question la plus utile** à chaque tour (celle qui réduit le plus l'incertitude), dans un ordre logique : du général au précis, sans jamais reposer une question déjà tranchée (après « homme », pas de « femme »). Il pose aussi des questions à choix (« Quand est-il né ? », « Dans quel domaine ? », « Quel sport ? »…) quand elles en apprennent plus qu’un oui/non.
+- **Il pose la question la plus utile** à chaque tour (celle qui réduit le plus l'incertitude), dans un ordre logique : du général au précis, sans jamais reposer une question déjà tranchée (après « homme », pas de « femme »). Les réponses sont toujours oui / plutôt oui / je ne sais pas / plutôt non / non. Chaque question est pondérée par la chance que le joueur connaisse la réponse, pour poser les questions évidentes avant les détails pointus.
 - **Il apprend** : quand il perd, tu lui dis à qui tu pensais et il retient tes réponses (stocké dans ton navigateur).
-- Retour en arrière, carnet de pistes en direct, sons et animations.
+- Retour en arrière, bouton pour changer de thème, sons et animations, adapté au téléphone.
 
 ## Fichiers
 
