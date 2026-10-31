@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Le Devin</title>
-<meta name="description" content="Pense à un personnage, réel ou fictif : le Devin le trouve en quelques questions.">
+<meta name="description" content="Pense à un personnage, un animal, un objet ou un aliment : le Devin le trouve en quelques questions.">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -104,6 +104,10 @@ h2.question { font-size: clamp(1.45rem, 3.8vw, 2.1rem); min-height: 2.4em; displ
 .ticker b.in { animation: tick .45s ease; }
 @keyframes tick { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
 
+.modes { display: inline-flex; padding: 4px; gap: 4px; border-radius: 999px; background: var(--ink-2); border: 1px solid var(--ink-3); max-width: 100%; flex-wrap: wrap; justify-content: center; }
+.mode { border: 0; background: transparent; color: var(--mist); border-radius: 999px; padding: 8px 16px; font-weight: 600; font-size: .9rem; transition: background .2s, color .2s; }
+.mode:hover { color: var(--parchment); }
+.mode[aria-selected="true"] { background: var(--brass); color: #1b1407; }
 .universes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 560px; }
 .uni {
   background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 999px; padding: 6px 12px; font-size: .85rem;
@@ -240,11 +244,11 @@ footer.foot kbd { font-family: var(--f-mono); border: 1px solid var(--ink-3); bo
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <script src="personnages.js"></script>
+<script src="wikidata.js"></script>
+<script src="choses.js"></script>
 <script>
 /* ---------- Données ---------- */
-function parse(s, custom) {
-  const [name, desc, tags = ""] = s.split("|");
-  const t = {};
+function applyTags(t, tags, implique) {
   for (const tag of tags.split(" ").filter(Boolean)) {
     if (tag[0] === "~") t[tag.slice(1)] = 0.5;
     else if (tag[0] === "-") t[tag.slice(1)] = 0;
@@ -253,26 +257,123 @@ function parse(s, custom) {
   let changed = true;
   while (changed) {
     changed = false;
-    for (const [k, v] of Object.entries(t)) if (v > 0) for (const imp of IMPLIQUE[k] || []) {
+    for (const [k, v] of Object.entries(t)) if (v > 0) for (const imp of implique[k] || []) {
       if (!(imp in t)) { t[imp] = v; changed = true; }
     }
   }
-  return { name, desc, t, custom: !!custom };
+  return t;
 }
-const CHARS = PERSONNAGES.map(s => parse(s));
+const WIKI_DATA = typeof WIKI !== "undefined" ? WIKI : { defaults: {}, curated: {}, entries: [] };
+// Traits ajoutés après coup : pour les fiches faites main, on les reprend de Wikidata quand elles y sont rapprochées
+const NEW_KEYS = new Set(WIKI_DATA.newKeys || []);
+const DEFAULTS = {};
+for (const [kind, d] of Object.entries(WIKI_DATA.defaults)) {
+  DEFAULTS[kind] = { zero: new Set(d.zero.split(" ")), soft: new Set(d.soft.split(" ")) };
+}
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+const words = s => s.split(" ");
 
-const UNIVERSES = [
-  ["reel", "Personnes réelles"], ["anime", "Manga"], ["jeu", "Jeux vidéo"], ["disney", "Disney & Pixar"],
-  ["marvel", "Marvel & DC"], ["serie", "Séries"], ["film", "Cinéma"], ["livre", "Livres & contes"], ["bd", "BD"], ["mythe", "Légendes"],
-  ["proche", "Toi & tes proches"]
-];
-function universeOf(c) {
-  if (c.t.proche === 1) return "Ton entourage";
-  const order = ["reel", "marvel", "disney", "anime", "jeu", "bd", "serie", "film", "livre", "dessin", "mythe"];
-  const names = { reel: "Personne réelle", marvel: "Comics", disney: "Disney", anime: "Manga", jeu: "Jeu vidéo", bd: "BD", serie: "Série", film: "Cinéma", livre: "Livre", dessin: "Dessin animé", mythe: "Légende" };
-  const k = order.find(k => c.t[k] === 1);
-  return k ? names[k] : (c.custom ? "Appris de toi" : "");
-}
+/* Enchaînement logique des questions :
+   pair      — deux questions complémentaires : répondre à l'une donne la réponse à l'autre (homme / femme)
+   oneOf     — une seule peut être vraie : après un « oui », on ne pose plus les autres
+   needs     — question précise posée seulement après un « oui » à l'une des questions générales
+   notIfNo / notIfYes — questions sans objet après un « non » / un « oui » à une autre */
+const EUROPE = "anglais espagne italie allemagne russie belgique suisse paysbas portugal pologne nordique grece irlande autriche";
+const SPORTS = "foot basket tennis combat voiture cyclisme athletisme natation rugby hockey golf baseball cricket footus handball";
+const LOGIC_PERSONNAGE = {
+  pair: [["homme", "femme"]],
+  oneOf: [
+    words("francais americain japon canada australie turquie " + EUROPE + " bresil argentine mexique chine inde coree egypte"),
+    words("europe afrique amlatine"), words("humain animal robot"), words("chien chat"), words(SPORTS),
+    words("antiquite moyenage siecle20"), words("toi famille")
+  ],
+  needs: Object.assign(
+    Object.fromEntries(words(EUROPE).map(k => [k, ["europe"]])),
+    Object.fromEntries(words("bresil argentine mexique").map(k => [k, ["amlatine"]])),
+    Object.fromEntries(words("chine inde coree").map(k => [k, ["asie"]])),
+    Object.fromEntries(words(SPORTS + " retraite olympique").map(k => [k, ["sport"]])),
+    Object.fromEntries(words("rap rock pop jazz classique chanteur compositeur groupe grammy").map(k => [k, ["musique"]])),
+    Object.fromEntries(words("pokemon nintendo").map(k => [k, ["jeu"]])),
+    Object.fromEntries(words("dragonball onepiece naruto").map(k => [k, ["anime"]])),
+    Object.fromEntries(words("got doctorwho").map(k => [k, ["serie"]])),
+    {
+      egypte: ["afrique"], ballondor: ["foot"], chefetat: ["politique"], oscar: ["acteur", "realisateur", "film"],
+      simpsons: ["dessin", "serie"], dc: ["marvel"], harrypotter: ["livre", "film", "pouvoir"], tolkien: ["livre", "film"],
+      starwars: ["espace", "film"], startrek: ["espace", "serie"], chien: ["animal"], chat: ["animal"],
+      famille: ["proche"], toi: ["proche"], jeune: ["vivant"], antiquite: ["passe"], moyenage: ["passe"]
+    }
+  ),
+  notIfNo: Object.fromEntries(words("vivant jeune neavant1945 neapres1970 mortjeune assassine nobel oscar grammy ballondor olympique chefetat retraite proche").map(k => [k, ["reel"]])),
+  notIfYes: Object.assign(
+    Object.fromEntries(words("anime jeu bd dessin disney marvel dc monstre mythe robot starwars harrypotter tolkien pokemon nintendo simpsons got dragonball onepiece naruto startrek doctorwho").map(k => [k, ["reel"]])),
+    { siecle20: ["passe"], neapres1970: ["neavant1945"], neavant1945: ["neapres1970", "jeune"], vieux: ["jeune", "enfant"] }
+  )
+};
+const ANIMAL_TRAITS = "mammifere oiseau poisson reptile insecte domestique ferme savane dangereux carnivore pattes4 poils motifs cornes nocturne saute";
+const FOOD_TRAITS = "fruit legume boisson sucre plat dessert viande laitier cereale chaud cru noyau epluche fastfood petitdej italien francais asiatique americain";
+const OBJECT_TRAITS = "electrique vehicule maison cuisine sdb ecole meuble vetement jouet instrument sportobj outil metal bois plastique verre tissu papier lumiere ecrire nettoyer poche moderne";
+const LOGIC_CHOSE = {
+  pair: [],
+  oneOf: [words("animal objet plante"), words("mammifere oiseau poisson reptile insecte"), words("fruit legume boisson plat"), words("italien francais asiatique americain")],
+  needs: Object.assign(
+    Object.fromEntries(words(ANIMAL_TRAITS).map(k => [k, ["animal"]])),
+    Object.fromEntries(words(FOOD_TRAITS).map(k => [k, ["mangeable"]])),
+    Object.fromEntries(words(OBJECT_TRAITS).map(k => [k, ["objet"]])),
+    {
+      alcool: ["boisson"], ecran: ["electrique"], pattes8: ["animal"], feuilles: ["legume"], chou: ["legume"], soupe: ["mangeable"],
+      ranger: ["objet"], transparent: ["objet"], tete: ["vetement"], jambes: ["vetement"], hiver: ["vetement"], femmes: ["vetement"], passagers: ["vehicule"], roues: ["objet"], moteur: ["objet"], rapide: ["animal", "vehicule"], eau: ["animal", "vehicule"],
+      froid: ["animal", "plante"], foret: ["animal", "plante"], tropical: ["mangeable", "animal", "plante"], sousterre: ["mangeable", "animal"],
+      son: ["objet", "animal"], vole: ["animal", "objet"], coupe: ["objet", "plante"], cher: ["objet", "mangeable"]
+    }
+  ),
+  notIfNo: {},
+  notIfYes: { mangeable: ["objet"], objet: ["mangeable"] }
+};
+
+const MODES = {
+  personnage: {
+    questions: QUESTIONS,
+    logic: LOGIC_PERSONNAGE,
+    universes: [
+      ["reel", "Personnes réelles"], ["serie", "Séries"], ["film", "Cinéma"], ["anime", "Manga"], ["jeu", "Jeux vidéo"], ["disney", "Disney & Pixar"],
+      ["marvel", "Marvel & DC"], ["livre", "Livres & contes"], ["bd", "BD"], ["mythe", "Légendes"], ["proche", "Toi & tes proches"]
+    ],
+    labels: [["proche", "Ton entourage"], ["reel", "Personne réelle"], ["marvel", "Comics"], ["disney", "Disney"], ["anime", "Manga"], ["jeu", "Jeu vidéo"], ["bd", "BD"], ["serie", "Série"], ["film", "Cinéma"], ["livre", "Livre"], ["dessin", "Dessin animé"], ["mythe", "Légende"]],
+    items() {
+      const list = PERSONNAGES.map(s => this.parse(s));
+      for (const [name, desc, sl, kind, tags] of WIKI_DATA.entries) {
+        list.push({ name, desc: cap(desc) || (kind === "h" ? "Personnalité" : "Personnage de fiction"), t: applyTags({}, tags, IMPLIQUE), sl, kind });
+      }
+      return list;
+    },
+    parse(s, custom) {
+      const [name, desc, tags = ""] = s.split("|");
+      const t = applyTags({}, tags, IMPLIQUE);
+      const extra = WIKI_DATA.curated[name];
+      if (extra) {
+        const w = applyTags({}, extra[1], IMPLIQUE);
+        for (const k of NEW_KEYS) if (!(k in t) && w[k]) t[k] = w[k];
+      }
+      return { name, desc, t, custom: !!custom, sl: extra ? extra[0] : t.proche ? 120 : 40 };
+    }
+  },
+  chose: {
+    questions: CHOSES_QUESTIONS,
+    logic: LOGIC_CHOSE,
+    universes: [
+      ["animal", "Animaux"], ["fruit", "Fruits"], ["legume", "Légumes"], ["plat", "Plats"], ["dessert", "Desserts"], ["boisson", "Boissons"],
+      ["plante", "Plantes"], ["objet", "Objets"], ["vehicule", "Transports"], ["electrique", "Électronique"]
+    ],
+    labels: [["vehicule", "Transport"], ["animal", "Animal"], ["fruit", "Fruit"], ["legume", "Légume"], ["boisson", "Boisson"], ["dessert", "Douceur"], ["plat", "Plat"], ["mangeable", "Aliment"], ["plante", "Plante"], ["electrique", "Électronique"], ["vetement", "Vêtement"], ["jouet", "Jeu"], ["instrument", "Musique"], ["objet", "Objet"]],
+    items() { return CHOSES.map(s => this.parse(s)); },
+    parse(s, custom) {
+      const [name, desc, tags = ""] = s.split("|");
+      const t = applyTags({}, tags, CHOSES_IMPLIQUE);
+      // pour les choses, on n'a pas de notoriété : les plus courantes (fruits, animaux familiers…) passent avant
+      return { name, desc, t, custom: !!custom, sl: t.domestique || t.ferme || t.fruit || t.legume || t.maison ? 60 : 40 };
+    }
+  }
+};
 
 /* ---------- Mémoire locale ---------- */
 const KEY = "le-devin.v1";
@@ -283,56 +384,149 @@ function loadMem() {
 function saveMem() { try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch (e) {} }
 const mem = loadMem();
 if (mem.sound === undefined) mem.sound = true;
-for (const [name, desc] of Object.entries(mem.custom)) {
-  if (!CHARS.some(c => c.name === name)) CHARS.push(parse(`${name}|${desc}|`, true));
-}
+if (!mem.chose) mem.chose = { obs: {}, plays: {}, custom: {} };
+// ce que le Devin a appris, rangé par mode (les personnages restent à la racine pour garder les anciennes parties)
+const learned = () => (mode === "chose" ? mem.chose : mem);
 
 /* ---------- Moteur bayésien ---------- */
-const EPS = 0.06;
+const EPS = 0.05;
+const SOFT = 0.12;    // trait que Wikidata aurait probablement mentionné s'il était vrai
+let mode = mem.mode === "chose" ? "chose" : "personnage";
+let MODE, QS, KEYS, A, CHARS, BY_NAME, M, PRIOR;
+const built = {};
+
+function useMode(m) {
+  mode = m; MODE = MODES[m];
+  if (!built[m]) {
+    const keys = Object.keys(MODE.questions);
+    const chars = MODE.items();
+    const byName = new Map(chars.map((c, i) => [c.name, i]));
+    built[m] = { keys, chars, byName, M: null, PRIOR: null };
+    ({ keys: KEYS, chars: CHARS, byName: BY_NAME } = built[m]);
+    QS = MODE.questions; A = KEYS.length; M = null;
+    for (const [name, desc] of Object.entries(learned().custom)) {
+      if (!BY_NAME.has(name)) { BY_NAME.set(name, CHARS.length); CHARS.push(MODE.parse(`${name}|${desc}|`, true)); }
+    }
+    buildMatrix();
+    built[m].M = M; built[m].PRIOR = PRIOR;
+  }
+  ({ keys: KEYS, chars: CHARS, byName: BY_NAME, M, PRIOR } = built[m]);
+  QS = MODE.questions; A = KEYS.length;
+}
+
 function value(c, a) {
-  const base = a in c.t ? c.t[a] : (c.custom ? 0.5 : 0);
-  const o = mem.obs[c.name] && mem.obs[c.name][a];
+  let base;
+  if (a in c.t) base = c.t[a];
+  else if (c.kind) { const d = DEFAULTS[c.kind]; base = d && d.zero.has(a) ? 0 : d && d.soft.has(a) ? SOFT : 0.5; }
+  else base = c.custom ? 0.5 : 0;
+  const o = learned().obs[c.name] && learned().obs[c.name][a];
   if (!o) return base;
   const k = c.custom ? 0.5 : 4;          // poids de la fiche d'origine face aux parties jouées
   return (base * k + o[0]) / (k + o[1]);
 }
-const pYes = (c, a) => EPS + (1 - 2 * EPS) * value(c, a);
-const likelihood = (c, a, w) => { const p = pYes(c, a); return w * p + (1 - w) * (1 - p); };
+// Matrice précalculée des probabilités de « oui » : N entrées × A questions
+function buildMatrix(from = 0) {
+  const N = CHARS.length;
+  if (!M || M.length < N * A) { const old = M; M = new Float32Array(N * A); if (old) M.set(old.subarray(0, from * A)); }
+  PRIOR = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    const c = CHARS[i];
+    // les personnages célèbres sont plus souvent choisis : a priori proportionnel à la notoriété
+    PRIOR[i] = 1.1 * Math.log(c.sl || 20) + 0.6 * Math.log1p(learned().plays[c.name] || 0);
+    if (i < from) continue;
+    for (let j = 0; j < A; j++) M[i * A + j] = EPS + (1 - 2 * EPS) * value(c, KEYS[j]);
+  }
+  if (built[mode]) { built[mode].M = M; built[mode].PRIOR = PRIOR; }
+}
+function refreshChar(i) { for (let j = 0; j < A; j++) M[i * A + j] = EPS + (1 - 2 * EPS) * value(CHARS[i], KEYS[j]); }
+useMode(mode);
+
+// toutes les réponses connues, y compris celles déduites (« homme » ⇒ pas « femme »)
+function known() {
+  const out = new Map();
+  for (const a of game.answers) { out.set(a.attr, a.w); for (const d of a.inferred || []) out.set(d.attr, d.w); }
+  return out;
+}
+function inferFrom(attr, w) {
+  if (w > 0.25 && w < 0.75) return [];
+  const out = [];
+  for (const [a, b] of MODE.logic.pair) {
+    if (attr === a) out.push({ attr: b, w: 1 - w });
+    if (attr === b) out.push({ attr: a, w: 1 - w });
+  }
+  return out;
+}
+function allowed(a, k) {
+  if (k.has(a)) return false;
+  const L = MODE.logic;
+  const yes = x => k.has(x) && k.get(x) >= 0.75, no = x => k.has(x) && k.get(x) <= 0.25;
+  if (L.needs[a] && !L.needs[a].some(yes)) return false;
+  if (L.notIfNo[a] && L.notIfNo[a].some(no)) return false;
+  if (L.notIfYes[a] && L.notIfYes[a].some(yes)) return false;
+  for (const g of L.oneOf) if (g.includes(a) && g.some(x => x !== a && yes(x))) return false;
+  return true;
+}
 
 function posterior() {
-  const logs = CHARS.map(c => {
-    if (game.rejected.has(c.name)) return -Infinity;
-    let l = Math.log(1 + 0.4 * Math.log1p(mem.plays[c.name] || 0));
-    for (const { attr, w } of game.answers) l += Math.log(likelihood(c, attr, w));
-    return l;
-  });
-  const m = Math.max(...logs);
-  const ps = logs.map(l => Math.exp(l - m));
-  const s = ps.reduce((a, b) => a + b, 0) || 1;
-  return ps.map(p => p / s);
+  const N = CHARS.length, logs = new Float64Array(N);
+  const ans = [...known()].map(([attr, w]) => [KEYS.indexOf(attr), w]);
+  let m = -Infinity;
+  for (let i = 0; i < N; i++) {
+    if (game.rejected.has(CHARS[i].name)) { logs[i] = -Infinity; continue; }
+    let l = PRIOR[i];
+    const row = i * A;
+    for (const [j, w] of ans) { const p = M[row + j]; l += Math.log(w * p + (1 - w) * (1 - p)); }
+    logs[i] = l;
+    if (l > m) m = l;
+  }
+  let s = 0;
+  for (let i = 0; i < N; i++) { logs[i] = Math.exp(logs[i] - m); s += logs[i]; }
+  for (let i = 0; i < N; i++) logs[i] /= s || 1;
+  return logs;
 }
-const entropy = ps => { let h = 0; for (const p of ps) if (p > 1e-12) h -= p * Math.log2(p); return h; };
+function ranked(post, limit) {
+  const idx = [];
+  for (let i = 0; i < post.length; i++) if (post[i] > 1e-9) idx.push(i);
+  idx.sort((a, b) => post[b] - post[a]);
+  return limit ? idx.slice(0, limit) : idx;
+}
 
 function pickQuestion(post) {
-  const asked = new Set(game.answers.map(a => a.attr));
+  const k = known();
+  // on ne raisonne que sur les candidats qui pèsent vraiment (99,9 % de la masse, 4000 au plus)
+  const order = ranked(post);
   const live = [];
-  post.forEach((p, i) => { if (p > 1e-7) live.push(i); });
+  let mass = 0;
+  for (const i of order) { live.push(i); mass += post[i]; if (mass > 0.999 || live.length >= 4000) break; }
+  const q = live.map(i => post[i] / mass);
   const scored = [];
-  for (const a of Object.keys(QUESTIONS)) {
-    if (asked.has(a)) continue;
-    let py = 0;
-    const yes = [], no = [];
-    for (const i of live) { const p = pYes(CHARS[i], a); py += post[i] * p; yes.push(post[i] * p); no.push(post[i] * (1 - p)); }
-    if (py < 0.004 || py > 0.996) continue;
-    const h = py * entropy(yes.map(v => v / py)) + (1 - py) * entropy(no.map(v => v / (1 - py)));
+  for (let j = 0; j < A; j++) {
+    const a = KEYS[j];
+    if (!allowed(a, k)) continue;
+    // H(oui) = log py − Σ y log y / py, idem pour non
+    let py = 0, sy = 0, sn = 0;
+    for (let x = 0; x < live.length; x++) {
+      const p = M[live[x] * A + j], y = q[x] * p, n = q[x] - y;
+      py += y;
+      if (y > 0) sy += y * Math.log(y);
+      if (n > 0) sn += n * Math.log(n);
+    }
+    const pn = 1 - py;
+    if (py < 0.004 || pn < 0.004) continue;
+    const h = py * (Math.log(py) - sy / py) + pn * (Math.log(pn) - sn / pn);
     scored.push({ a, h });
   }
   if (!scored.length) return null;
   scored.sort((x, y) => x.h - y.h);
   // De la variété : on tire parmi les questions presque aussi utiles que la meilleure
-  const slack = game.answers.length === 0 ? 0.3 : 0.04;
-  const pool = scored.filter(s => s.h <= scored[0].h + slack).slice(0, 4);
+  const slack = game.answers.length === 0 ? 0.2 : 0.02;
+  const pool = scored.filter(s => s.h <= scored[0].h + slack).slice(0, 3);
   return pool[Math.floor(Math.random() * pool.length)].a;
+}
+
+function universeOf(c) {
+  const hit = MODE.labels.find(([k]) => c.t[k] === 1);
+  return hit ? hit[1] : (c.custom ? "Appris de toi" : "");
 }
 
 /* ---------- Partie ---------- */
@@ -343,26 +537,27 @@ const ANSWERS = [
   { w: 0.25, label: "Plutôt non", key: "4", c: "#e6a77c", g: 8 },
   { w: 0, label: "Non", key: "5", c: "var(--rose)", g: 12 }
 ];
-const MAX_Q = 45, MAX_GUESSES = 3;
+const MAX_Q = 50, MAX_GUESSES = 3;
 let game = null, screen = "intro", current = null, guessing = null, veiled = false, busy = false;
 
 function newGame() {
-  game = { answers: [], rejected: new Set(), guesses: 0, nextForced: 22, top: 0 };
+  game = { answers: [], rejected: new Set(), guesses: 0, nextForced: 25, top: 0 };
   sfx("start");
   next();
 }
 
 function next() {
   const post = posterior();
-  const order = post.map((p, i) => [p, i]).sort((a, b) => b[0] - a[0]);
-  const [topP, topI] = order[0];
+  const top = ranked(post, 6);
+  if (!top.length || game.guesses >= MAX_GUESSES || game.answers.length >= MAX_Q) return lose();
+  const topI = top[0], topP = post[topI], secondP = top[1] !== undefined ? post[top[1]] : 0;
   const n = game.answers.length;
   game.top = topP;
   orb.conf = topP;
-  renderNotebook(order);
-  const alive = order.filter(([p]) => p > 0).length;
-  if (alive === 0 || game.guesses >= MAX_GUESSES || n >= MAX_Q) return lose();
-  if ((topP > 0.82 && n >= 5) || n >= game.nextForced || alive === 1) return guess(CHARS[topI]);
+  renderNotebook(top.map(i => [post[i], i]));
+  // proposer quand un candidat domine nettement, ou quand on a posé assez de questions
+  const dominant = (topP > 0.8 || (topP > 0.6 && topP > 6 * secondP)) && n >= 6;
+  if (dominant || n >= game.nextForced || top.length === 1) return guess(CHARS[topI]);
   const q = pickQuestion(post);
   if (!q) return guess(CHARS[topI]);
   current = q;
@@ -373,7 +568,7 @@ function next() {
 
 function answer(w, fromEl) {
   if (screen !== "question" || busy) return;
-  game.answers.push({ attr: current, w });
+  game.answers.push({ attr: current, w, inferred: inferFrom(current, w) });
   const a = ANSWERS.find(x => x.w === w);
   if (fromEl) { ripple(fromEl); fly(fromEl, a); }
   sfx("answer", w);
@@ -417,18 +612,21 @@ function win() {
 function lose() { screen = "lose"; orb.conf = 0.05; orb.mood = "sad"; sfx("lose"); render(); }
 
 function learn(name, desc) {
-  if (!CHARS.some(c => c.name === name)) {
+  if (!BY_NAME.has(name)) {
     const d = desc || "Appris grâce à toi";
-    CHARS.push(parse(`${name}|${d}|`, true));
-    mem.custom[name] = d;
+    BY_NAME.set(name, CHARS.length);
+    CHARS.push(MODE.parse(`${name}|${d}|`, true));
+    learned().custom[name] = d;
   }
-  const o = mem.obs[name] || (mem.obs[name] = {});
-  for (const { attr, w } of game.answers) {
+  const o = learned().obs[name] || (learned().obs[name] = {});
+  for (const [attr, w] of known()) {
     if (w === 0.5) continue;
     const cur = o[attr] || [0, 0];
     o[attr] = [cur[0] + w, cur[1] + 1];
   }
-  mem.plays[name] = (mem.plays[name] || 0) + 1;
+  learned().plays[name] = (learned().plays[name] || 0) + 1;
+  const i = BY_NAME.get(name);
+  if (M.length < CHARS.length * A) buildMatrix(i); else { refreshChar(i); buildMatrix(CHARS.length); }
 }
 function teach(name) {
   name = name.trim().replace(/\s+/g, " ");
@@ -436,7 +634,7 @@ function teach(name) {
   const known = CHARS.find(c => norm(c.name) === norm(name));
   learn(known ? known.name : name);
   mem.games++; saveMem();
-  guessing = known || CHARS.find(c => c.name === name);
+  guessing = CHARS[BY_NAME.get(known ? known.name : name)];
   screen = "taught"; orb.mood = "happy"; sfx("win");
   render();
 }
@@ -464,7 +662,7 @@ function say(text) {
 }
 function remark() {
   const p = game.top, n = game.answers.length;
-  if (n === 0) return pick(["Concentre-toi bien sur ton personnage…", "Je sens une présence. Commençons.", "Ferme les yeux et pense fort."]);
+  if (n === 0) return pick([mode === "chose" ? "Concentre-toi bien sur ta chose…" : "Concentre-toi bien sur ton personnage…", "Je sens une présence. Commençons.", "Ferme les yeux et pense fort."]);
   if (p < 0.12) return pick(["Les brumes sont encore épaisses.", "Tout reste possible…", "Continue, je cherche.", "Hmm, je n'y vois pas encore clair."]);
   if (p < 0.35) return pick(["Une silhouette se dessine.", "Je commence à sentir quelque chose.", "Tiens, tiens…"]);
   if (p < 0.65) return pick(["Je chauffe…", "Plus que quelques questions.", "J'ai une petite idée."]);
@@ -482,7 +680,7 @@ function typeInto(el, text) {
     i += 1;
     span.textContent = text.slice(0, i);
     if (i >= text.length) { clearInterval(typer); setTimeout(() => { const c = el.querySelector(".caret"); if (c) c.remove(); }, 600); }
-  }, 18);
+  }, 12);
 }
 
 function render() {
@@ -494,13 +692,18 @@ function render() {
   let html = "";
 
   if (screen === "intro") {
-    const counts = UNIVERSES.map(([k, label]) => [k, label, CHARS.filter(c => c.t[k] === 1).length]);
+    const counts = MODE.universes.map(([k, label]) => [k, label, CHARS.filter(c => c.t[k] === 1).length]);
+    const chose = mode === "chose";
     html = `
-      <span class="eyebrow">${CHARS.length} personnages · ${Object.keys(QUESTIONS).length} questions</span>
-      <h1>Pense à quelqu'un.<br>Je vais le trouver.</h1>
-      <p class="lede">Une star, un héros de manga, un personnage de dessin animé… ou même toi, ta mère ou ton meilleur ami.</p>
+      <div class="modes" role="tablist" aria-label="Que vas-tu faire deviner ?">
+        <button class="mode" type="button" role="tab" data-mode="personnage" aria-selected="${!chose}">Un personnage</button>
+        <button class="mode" type="button" role="tab" data-mode="chose" aria-selected="${chose}">Un animal, un objet, un aliment</button>
+      </div>
+      <span class="eyebrow">${CHARS.length.toLocaleString("fr-FR")} ${chose ? "choses" : "personnages"} · ${KEYS.length} questions</span>
+      <h1>${chose ? "Pense à une chose.<br>Je vais la trouver." : "Pense à quelqu'un.<br>Je vais le trouver."}</h1>
+      <p class="lede">${chose ? "Un animal, un fruit, un légume, un plat, une boisson, une plante ou n'importe quel objet de la maison." : "Une star, un héros de manga, un personnage de dessin animé… ou même toi, ta mère ou ton meilleur ami."}</p>
       <div class="ticker">Par exemple… <b id="tick"></b></div>
-      <div class="row"><button class="btn primary big glow" id="start" type="button">J'y pense, commence</button></div>
+      <div class="row"><button class="btn primary big" id="start" type="button">J'y pense, commence</button></div>
       <div class="universes">${counts.map(([k, label, c]) => `<button class="uni" type="button" data-u="${k}">${label} <b>${c}</b></button>`).join("")}</div>`;
     say(mem.games ? pick(["Te revoilà ! Prêt pour une nouvelle partie ?", "J'ai appris depuis la dernière fois.", "Encore une ? Je suis en forme."]) : "Bonjour. Je lis dans les pensées. Tu veux essayer ?");
   } else if (screen === "question") {
@@ -537,19 +740,17 @@ function render() {
       <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button></div>`;
     say(pick(["Je le savais !", "Trop facile. Encore une ?", "Personne n'échappe au Devin."]));
   } else if (screen === "lose") {
-    const order = posterior().map((p, i) => [p, i]).sort((a, b) => b[0] - a[0]).slice(0, 6).filter(([p]) => p > 0);
     const rejected = [...game.rejected];
-    const sugg = [...new Set([...rejected, ...order.map(([, i]) => CHARS[i].name)])].slice(0, 6);
+    const sugg = [...new Set([...rejected, ...ranked(posterior(), 6).map(i => CHARS[i].name)])].slice(0, 6);
     html = `
       <span class="eyebrow">Tu m'as eu</span>
-      <h1>À qui pensais-tu ?</h1>
+      <h1>${mode === "chose" ? "À quoi pensais-tu ?" : "À qui pensais-tu ?"}</h1>
       <p class="lede">Dis-le-moi et je l'apprendrai avec les ${n} réponses que tu m'as données.</p>
       <form class="learn" id="teachForm" autocomplete="off">
-        <label for="who">Nom du personnage</label>
-        <input id="who" list="names" placeholder="Ex. : Thomas Pesquet, Totoro…" required>
-        <datalist id="names">${CHARS.map(c => `<option value="${esc(c.name)}">`).join("")}</datalist>
-        ${sugg.length ? `<label>C'était peut-être l'un d'eux ?</label>
-        <div class="sugg">${sugg.map(name => `<button class="chip" type="button" data-name="${esc(name)}">${esc(name)}</button>`).join("")}</div>` : ""}
+        <label for="who">${mode === "chose" ? "Ce que c'était" : "Nom du personnage"}</label>
+        <input id="who" placeholder="${mode === "chose" ? "Ex. : un ornithorynque, une raclette…" : "Ex. : Thomas Pesquet, Totoro, ma tante Josiane…"}" required>
+        <label id="suggLabel">${sugg.length ? "C'était peut-être l'un d'eux ?" : ""}</label>
+        <div class="sugg" id="sugg">${chips(sugg)}</div>
         <div class="row" style="justify-content:flex-start"><button class="btn primary" type="submit">Lui apprendre</button><button class="btn ghost" id="again" type="button">Rejouer sans apprendre</button></div>
       </form>`;
     say(pick(["Je donne ma langue au chat…", "Impossible ! Qui était-ce ?", "Tu m'as battu. Pour cette fois."]));
@@ -558,18 +759,21 @@ function render() {
       <span class="eyebrow">Leçon retenue</span>
       ${medal(guessing)}
       <h1>${esc(guessing.name)}</h1>
-      <p class="lede">C'est noté. Rejoue avec ce personnage pour voir si je l'ai bien compris.</p>
+      <p class="lede">C'est noté. Rejoue avec ${mode === "chose" ? "la même chose" : "ce personnage"} pour voir si je l'ai bien compris.</p>
       <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button></div>`;
     say("Merci ! Je ne l'oublierai pas.");
   }
   card.innerHTML = html;
   card.classList.remove("fade", "busy"); void card.offsetWidth; card.classList.add("fade");
-  if (screen === "question") typeInto($("q"), QUESTIONS[current]);
+  if (screen === "question") typeInto($("q"), QS[current]);
   if (screen === "intro") startTicker();
   renderStats();
   bind();
 }
 
+let fame = null;
+const byFame = () => fame && fame.length === CHARS.length ? fame : (fame = CHARS.map((_, i) => i).sort((a, b) => PRIOR[b] - PRIOR[a]));
+const chips = names => names.map(name => `<button class="chip" type="button" data-name="${esc(name)}">${esc(name)}</button>`).join("");
 function bind() {
   const on = (id, f) => { const el = $(id); if (el) el.onclick = f; };
   on("start", newGame);
@@ -579,9 +783,26 @@ function bind() {
   on("again", () => { if (screen === "lose") { mem.games++; saveMem(); } newGame(); });
   document.querySelectorAll(".ans").forEach(b => b.onclick = () => answer(+b.dataset.w, b));
   document.querySelectorAll(".chip").forEach(b => b.onclick = () => teach(b.dataset.name));
+  document.querySelectorAll(".mode").forEach(b => b.onclick = () => {
+    if (b.dataset.mode === mode) return;
+    useMode(b.dataset.mode); mem.mode = mode; saveMem(); fame = null; sfx("tick"); render();
+  });
   document.querySelectorAll(".uni").forEach(b => b.onclick = () => { tickerFilter = b.dataset.u; tickOnce(); sfx("tick"); });
   const f = $("teachForm");
-  if (f) f.onsubmit = e => { e.preventDefault(); teach($("who").value); };
+  if (f) {
+    f.onsubmit = e => { e.preventDefault(); teach($("who").value); };
+    $("who").oninput = () => {
+      const q = norm($("who").value);
+      if (q.length < 2) return;
+      const hits = [];
+      for (const i of byFame()) {
+        if (norm(CHARS[i].name).includes(q)) { hits.push(CHARS[i].name); if (hits.length >= 8) break; }
+      }
+      $("suggLabel").textContent = hits.length ? "Tu veux dire :" : "Inconnu pour moi : je l'ajouterai.";
+      $("sugg").innerHTML = chips(hits);
+      document.querySelectorAll(".chip").forEach(b => b.onclick = () => teach(b.dataset.name));
+    };
+  }
   const m = $("medal");
   if (m && !reduceMotion) {
     const wrap = m.parentElement;
@@ -616,7 +837,7 @@ function renderNotebook(order) {
   requestAnimationFrame(() => leads.querySelectorAll(".bar > i").forEach(i => { i.style.width = i.dataset.w + "%"; }));
   const label = w => ANSWERS.find(a => a.w === w);
   $("trail").innerHTML = game.answers.slice().reverse().map(({ attr, w }) =>
-    `<div><span title="${esc(QUESTIONS[attr])}">${esc(QUESTIONS[attr])}</span><b style="color:${label(w).c}">${label(w).label}</b></div>`).join("")
+    `<div><span title="${esc(QS[attr])}">${esc(QS[attr])}</span><b style="color:${label(w).c}">${label(w).label}</b></div>`).join("")
     || `<div><span>Aucune réponse pour l'instant.</span></div>`;
 }
 $("veil").onclick = () => {
@@ -732,7 +953,7 @@ function drawOrb(now, dt) {
   octx.clearRect(0, 0, W, H);
   const c = orb.shown;
   const hue = lerp(176, 40, c), sat = lerp(38, 72, c);
-  const bob = reduceMotion ? 0 : Math.sin(now / 900) * R * 0.03;
+  const bob = reduceMotion ? 0 : Math.sin(now / 1400) * R * 0.02;
 
   // halo
   const halo = octx.createRadialGradient(cx, cy, R * 0.3, cx, cy, R * 1.5);
@@ -761,7 +982,7 @@ function drawOrb(now, dt) {
   octx.lineWidth = 1.5 * k; octx.strokeStyle = `hsla(${hue},${sat}%,78%,0.35)`; octx.stroke();
 
   // brume intérieure
-  const spin = reduceMotion ? 0 : (0.25 + c * 0.8 + orb.kick * 3 + (orb.mood === "think" ? 1.5 : 0));
+  const spin = reduceMotion ? 0 : (0.15 + c * 0.5 + orb.kick * 2 + (orb.mood === "think" ? 0.8 : 0));
   octx.save();
   octx.beginPath(); octx.arc(cx, oy, R * s * 0.98, 0, Math.PI * 2); octx.clip();
   for (const p of parts) {
@@ -833,7 +1054,6 @@ function drawOrb(now, dt) {
 /* ---------- Ciel étoilé ---------- */
 const sky = $("sky"), sctx = sky.getContext("2d");
 const stars = Array.from({ length: 170 }, () => ({ x: Math.random(), y: Math.random(), z: 0.2 + Math.random() * 0.8, tw: Math.random() * 6 }));
-let shoot = null;
 function drawSky(now, dt) {
   const W = sky.width, H = sky.height, d = Math.min(devicePixelRatio || 1, 2);
   const g = sctx.createRadialGradient(W * 0.3, 0, 0, W * 0.3, 0, Math.max(W, H));
@@ -841,23 +1061,10 @@ function drawSky(now, dt) {
   sctx.fillStyle = g; sctx.fillRect(0, 0, W, H);
   const px = (pointer.x / innerWidth - 0.5), py = (pointer.y / innerHeight - 0.5);
   for (const s of stars) {
-    const x = (s.x * W - px * 30 * s.z * d + W) % W, y = (s.y * H - py * 30 * s.z * d + H) % H;
+    const x = (s.x * W - px * 14 * s.z * d + W) % W, y = (s.y * H - py * 14 * s.z * d + H) % H;
     const a = 0.25 + 0.5 * s.z * (reduceMotion ? 1 : 0.6 + 0.4 * Math.sin(now / 700 + s.tw));
     sctx.fillStyle = `rgba(240,231,212,${a})`;
     sctx.beginPath(); sctx.arc(x, y, s.z * 1.3 * d, 0, Math.PI * 2); sctx.fill();
-  }
-  if (!reduceMotion) {
-    if (!shoot && Math.random() < dt * 0.08) shoot = { x: Math.random() * W, y: Math.random() * H * 0.4, life: 1 };
-    if (shoot) {
-      shoot.life -= dt * 1.4;
-      const len = 120 * d, t = 1 - shoot.life;
-      const x = shoot.x + t * 260 * d, y = shoot.y + t * 110 * d;
-      const grad = sctx.createLinearGradient(x, y, x - len, y - len * 0.42);
-      grad.addColorStop(0, `rgba(240,231,212,${shoot.life})`); grad.addColorStop(1, "rgba(240,231,212,0)");
-      sctx.strokeStyle = grad; sctx.lineWidth = 1.5 * d;
-      sctx.beginPath(); sctx.moveTo(x, y); sctx.lineTo(x - len, y - len * 0.42); sctx.stroke();
-      if (shoot.life <= 0) shoot = null;
-    }
   }
 }
 
@@ -881,7 +1088,7 @@ function fly(el, a) {
   if (reduceMotion) return;
   const b = el.getBoundingClientRect(), o = orbCv.getBoundingClientRect();
   const color = cssColor(a.c);
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 7; i++) {
     sparks.push({
       kind: "fly", t: -i * 0.025, x0: b.left + b.width * Math.random(), y0: b.top + b.height * Math.random(),
       x1: o.left + o.width / 2, y1: o.top + o.height / 2,
@@ -894,7 +1101,7 @@ function confetti(el) {
   if (reduceMotion) return;
   const r = el.getBoundingClientRect();
   const colors = ["#e0b25c", "#93cfa9", "#e88a72", "#f0e7d4", "#7fc3d6"];
-  for (let i = 0; i < 140; i++) {
+  for (let i = 0; i < 70; i++) {
     const ang = Math.random() * Math.PI * 2, sp = 4 + Math.random() * 9;
     sparks.push({
       kind: "conf", x: r.left + r.width / 2, y: r.top + r.height / 2, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 5,
