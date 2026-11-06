@@ -156,7 +156,7 @@ async function main() {
   }
   for (const e of seen.values()) {
     entries.push([e.name, (e.desc || "").slice(0, 90), e.sl,
-      Object.entries(e.tags).filter(([, v]) => v > 0).map(([k, v]) => (v === 1 ? k : `~${k}`)).join(" "), e.hot || 0]);
+      Object.entries(e.tags).filter(([, v]) => v > 0).map(([k, v]) => (v === 1 ? k : `~${k}`)).join(" "), e.hot || 0, e.year || 0]);
   }
   entries.sort((a, b) => b[2] - a[2]);
   const out = `/* Généré par tools/build-oeuvres.mjs le ${new Date().toISOString().slice(0, 10)} à partir de Wikidata (CC0). Ne pas modifier à la main. */

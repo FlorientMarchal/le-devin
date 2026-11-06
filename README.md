@@ -4,6 +4,17 @@ Pense à quelqu'un (une star, un héros de manga, toi-même, quelqu'un de ta fam
 
 **Jouer :** https://florientmarchal.github.io/le-devin/
 
+## D'autres jeux
+
+Le bouton « Changer de jeu », en haut de l'écran, mène à tous les jeux :
+
+- **Le Devin** : les quatre jeux de devinettes décrits plus bas.
+- **Pluie d'étoiles** (réflexes) : attrape les étoiles qui tombent avant qu'elles touchent le sol, enchaîne pour multiplier tes points, évite les comètes. 45 secondes.
+- **Paires d'étoiles** (mémoire) : seize cartes, huit symboles célestes, retrouve les paires en un minimum de coups.
+- **Chronologie du cinéma** (culture) : remets cinq films et séries connus dans l'ordre de sortie. Dix manches.
+
+Chaque jeu garde ton record dans ton navigateur.
+
 ## Ce qu'il sait faire
 
 - **Quatre jeux** :
@@ -27,6 +38,7 @@ Pense à quelqu'un (une star, un héros de manga, toi-même, quelqu'un de ta fam
 - `comprendre.js` — la compréhension des questions libres (synonymes, noms propres, question la plus proche).
 - `choses.js` — les questions et les entrées du mode animaux, objets et aliments.
 - `jeux.js` — Les Indices et L'Intrus.
+- `arcade.js` — la page des jeux, Pluie d'étoiles, Paires d'étoiles et Chronologie du cinéma.
 - `oeuvres.js` — les questions du mode films et séries ; `oeuvres-data.js` les titres générés (`node tools/build-oeuvres.mjs`).
 - `wikidata.js` — les entrées générées. Pour les régénérer : `node tools/build-wikidata.mjs` (Node 18+, interroge le service public QLever et les statistiques de lecture de Wikipédia, environ 10 minutes).
 

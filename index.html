@@ -223,6 +223,46 @@ h2.question { font-size: clamp(1.45rem, 3.8vw, 2.1rem); min-height: 2.4em; displ
 .score-big { font-family: var(--f-display); font-size: clamp(3.5rem, 12vw, 5.5rem); line-height: 1; color: var(--brass); font-variant-numeric: tabular-nums; }
 .score-big small { font-size: .35em; color: var(--mist); margin-left: .2em; }
 
+/* Page des jeux et jeux d'arcade */
+.stage.arcade .orb-wrap, .stage.arcade .bubble { display: none; }
+.gamecards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: 100%; max-width: 680px; }
+@media (max-width: 560px) { .gamecards { grid-template-columns: minmax(0, 1fr); } }
+.gamecard {
+  background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: var(--r); padding: 18px; text-align: left;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; transition: border-color .15s, transform .15s;
+}
+.gamecard:hover { border-color: var(--brass); transform: translateY(-3px); }
+.gamecard b { font-family: var(--f-display); font-weight: 400; font-size: 1.35rem; }
+.gamecard small { color: var(--mist); font-size: .88rem; line-height: 1.4; }
+.gamecard em { font-style: normal; font-family: var(--f-mono); font-size: .72rem; color: var(--brass); }
+.hud { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; font-family: var(--f-mono); font-size: .8rem; color: var(--mist); }
+.hud b { color: var(--parchment); font-size: 1.15rem; font-weight: 500; margin-left: 6px; font-variant-numeric: tabular-nums; }
+.playfield { width: 100%; max-width: 560px; height: min(62vh, 560px); border: 1px solid var(--ink-3); border-radius: var(--r); background: color-mix(in srgb, var(--ink) 70%, transparent); touch-action: none; cursor: crosshair; }
+.hint-line { font-size: .8rem; color: var(--mist); margin: 0; }
+.memory { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 440px; }
+.mcard { position: relative; aspect-ratio: 1; max-width: 100%; border: 0; padding: 0; background: none; border-radius: 12px; }
+.mcard .face { position: absolute; inset: 0; border-radius: 12px; display: grid; place-items: center; border: 1px solid var(--ink-3); }
+.mcard .back { background: radial-gradient(circle at 35% 30%, #1d3338, var(--ink-2)); }
+.mcard .back::after { content: ""; width: 26%; aspect-ratio: 1; border-radius: 50%; border: 2px solid var(--brass-deep); opacity: .6; }
+.mcard .front { background: var(--ink-2); display: none; }
+.mcard .front svg { width: 62%; height: 62%; }
+.mcard.up .back { display: none; }
+.mcard.up .front { display: grid; animation: pop .3s cubic-bezier(.2,1.4,.4,1); }
+.mcard.done .front { border-color: var(--sage); }
+.mcard:not(.up):hover .back { border-color: var(--brass); }
+.chrono { display: grid; gap: 8px; width: 100%; max-width: 520px; }
+.ccard {
+  display: grid; grid-template-columns: 52px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; align-items: center; text-align: left;
+  background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 12px; padding: 10px 14px; transition: border-color .15s;
+}
+.ccard .num { grid-row: span 2; font-family: var(--f-mono); font-size: 1rem; color: var(--brass); text-align: center; border-right: 1px solid var(--ink-3); align-self: stretch; display: grid; place-items: center; }
+.ccard b { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.ccard small { color: var(--mist); font-size: .78rem; }
+.ccard.set { border-color: var(--brass-deep); }
+.ccard.right { border-color: var(--sage); }
+.ccard.wrong { border-color: var(--rose); }
+.ccard:disabled { cursor: default; }
+
 /* Apprentissage */
 .learn { width: 100%; max-width: 460px; display: grid; gap: 10px; text-align: left; }
 .learn label { font-size: .85rem; color: var(--mist); }
@@ -254,6 +294,7 @@ footer.foot kbd { font-family: var(--f-mono); border: 1px solid var(--ink-3); bo
     <div class="top-right">
       <span class="stats" id="stats"></span>
       <button class="pill" id="homeTop" type="button" hidden>Changer de thème</button>
+      <button class="pill" id="gamesTop" type="button">Changer de jeu</button>
       <button class="pill" id="sound" type="button" aria-pressed="true">Son : activé</button>
     </div>
   </header>
@@ -270,12 +311,12 @@ footer.foot kbd { font-family: var(--f-mono); border: 1px solid var(--ink-3); bo
 </div>
 <canvas id="fx" aria-hidden="true"></canvas>
 
-<script src="personnages.js"></script>
-<script src="wikidata.js"></script>
-<script src="choses.js"></script>
-<script src="oeuvres.js"></script>
-<script src="oeuvres-data.js"></script>
-<script src="comprendre.js"></script>
+<script src="personnages.js?v=20261106"></script>
+<script src="wikidata.js?v=20261106"></script>
+<script src="choses.js?v=20261106"></script>
+<script src="oeuvres.js?v=20261106"></script>
+<script src="oeuvres-data.js?v=20261106"></script>
+<script src="comprendre.js?v=20261106"></script>
 <script>
 /* ---------- Données ---------- */
 function applyTags(t, tags, implique) {
@@ -447,8 +488,8 @@ const MODES = {
     ],
     labels: [["anime", "Anime"], ["animation", "Animation"], ["serie", "Série"], ["film", "Film"]],
     items() {
-      return (typeof OEUVRES_DATA !== "undefined" ? OEUVRES_DATA : []).map(([name, desc, sl, tags, hot = 0]) =>
-        ({ name, desc: cap(desc) || "Film ou série", t: applyTags({}, tags, OEUVRES_IMPLIQUE), sl, kind: "o", hot }));
+      return (typeof OEUVRES_DATA !== "undefined" ? OEUVRES_DATA : []).map(([name, desc, sl, tags, hot = 0, year = 0]) =>
+        ({ name, desc: cap(desc) || "Film ou série", t: applyTags({}, tags, OEUVRES_IMPLIQUE), sl, kind: "o", hot, year }));
     },
     parse(s, custom) {
       const [name, desc, tags = ""] = s.split("|");
@@ -925,7 +966,8 @@ function updateReverse(fresh) {
 // Retour à l'accueil pour choisir un autre thème (abandonne la partie en cours)
 function goHome() {
   if (screen === "intro") return;
-  // la partie abandonnée ne doit plus rien déclencher (réflexion en cours, proposition suivante)
+  // la partie abandonnée ne doit plus rien déclencher (réflexion en cours, proposition suivante, jeu d'arcade)
+  if (typeof stopArcade === "function") stopArcade();
   game = null; busy = false; current = null; guessing = null;
   screen = "intro"; orb.mood = "idle"; orb.conf = 0.04;
   sfx("tick");
@@ -963,6 +1005,7 @@ const T = () => TXT[mode];
 const $ = id => document.getElementById(id);
 $("brand").onclick = goHome;
 $("homeTop").onclick = goHome;
+$("gamesTop").onclick = () => goGames();
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
 const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -1009,8 +1052,11 @@ function render() {
   const card = $("card");
   clearInterval(typer); clearInterval(tickerTimer);
   $("stage").classList.toggle("solo", screen === "intro");
-  $("homeTop").hidden = screen === "intro";
-  const n = game ? game.answers.length : 0;
+  const arcade = typeof ARCADE_SCREENS !== "undefined" && ARCADE_SCREENS.has(screen);
+  $("homeTop").hidden = screen === "intro" || screen === "hub" || arcade;
+  $("gamesTop").hidden = screen === "hub";
+  $("stage").classList.toggle("arcade", arcade);
+  const n = game && game.answers ? game.answers.length : 0;
   let html = "";
 
   if (screen === "intro") {
@@ -1118,7 +1164,7 @@ function render() {
       <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button><button class="btn" id="home" type="button">Changer de thème</button></div>`;
     say(game.found ? pick(["Bravo, tu m'as démasqué !", "Impressionnant. Tu lis dans MES pensées ?", "Bien joué !"]) : pick(["Hé hé, trop fort pour toi ?", "La prochaine fois, peut-être !"]));
   } else if (GAMES[screen]) {
-    if (!game) { screen = "intro"; return render(); }
+    if (!game && !GAMES[screen].free) { screen = "intro"; return render(); }
     html = GAMES[screen].html();
   } else if (screen === "taught") {
     html = `
@@ -1539,6 +1585,7 @@ renderSound();
 render();
 requestAnimationFrame(loop);
 </script>
-<script src="jeux.js"></script>
+<script src="jeux.js?v=20261106"></script>
+<script src="arcade.js?v=20261106"></script>
 </body>
 </html>
