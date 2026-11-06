@@ -1,7 +1,7 @@
-/* Des jeux complètement différents des devinettes, réunis sur la page « Changer de jeu » :
-   Pluie d'étoiles (réflexes), Paires d'étoiles (mémoire), Chronologie du cinéma (culture). */
+/* D'autres jeux de culture, réunis sur la page « Changer de jeu » :
+   Chronologie du cinéma, Le Pendu, Devine l'année. (Le Duel contre le Devin est dans duel.js.) */
 
-const ARCADE_SCREENS = new Set(["etoiles", "paires", "chrono", "arcadeEnd"]);
+const ARCADE_SCREENS = new Set(["chrono", "pendu", "annee", "arcadeEnd"]);
 let arcadeLoop = null;
 function stopArcade() { if (arcadeLoop) cancelAnimationFrame(arcadeLoop); arcadeLoop = null; }
 function goGames() {
@@ -32,9 +32,10 @@ const bestOf = key => (mem.best || {})[key];
 
 /* ---------- Page des jeux ---------- */
 const GAME_LIST = [
-  { go: "devin", title: "Le Devin", kind: "Devinettes", text: "Il lit dans tes pensées, ou c'est toi qui le questionnes. Quatre façons de jouer : Le Devin devine, Tu devines, Les Indices, L'Intrus." },
-  { go: "etoiles", title: "Pluie d'étoiles", kind: "Réflexes", text: "Attrape les étoiles avant qu'elles touchent le sol, enchaîne pour multiplier tes points, évite les comètes. 45 secondes.", best: () => bestOf("etoiles") !== undefined ? `Record : ${bestOf("etoiles")} points` : "" },
-  { go: "paires", title: "Paires d'étoiles", kind: "Mémoire", text: "Seize cartes face cachée, huit symboles célestes. Retrouve toutes les paires en un minimum de coups.", best: () => bestOf("paires") !== undefined ? `Record : ${bestOf("paires")} coups` : "" },
+  { go: "devin", title: "Le Devin", kind: "Devinettes", text: "Il lit dans tes pensées, ou c'est toi qui le questionnes. Cinq façons de jouer, dont Les Indices et L'Intrus." },
+  { go: "duel", title: "Le Duel", kind: "Face au Devin", text: "Chacun choisit un secret. Questions à tour de rôle : le premier qui trouve le secret de l'autre gagne.", best: () => bestOf("duel") !== undefined ? `Victoires : ${bestOf("duel")}` : "" },
+  { go: "pendu", title: "Le Pendu", kind: "Mots", text: "Un titre de film, une célébrité ou une chose à reconstituer lettre par lettre. Sept erreurs permises, enchaîne les mots.", best: () => bestOf("pendu") !== undefined ? `Record : ${bestOf("pendu")} mots d'affilée` : "" },
+  { go: "annee", title: "Devine l'année", kind: "Culture", text: "Un film ou une série connu : en quelle année est-il sorti ? Plus tu es proche, plus tu marques. Dix manches.", best: () => bestOf("annee") !== undefined ? `Record : ${bestOf("annee")} / 1000` : "" },
   { go: "chrono", title: "Chronologie du cinéma", kind: "Culture", text: "Cinq films et séries connus : remets-les dans l'ordre de sortie, du plus ancien au plus récent. Dix manches.", best: () => bestOf("chrono") !== undefined ? `Record : ${bestOf("chrono")} / 50` : "" }
 ];
 GAMES.hub = {
@@ -54,8 +55,9 @@ GAMES.hub = {
   },
   act: {
     devin: () => { screen = "intro"; render(); },
-    etoiles: () => newStars(),
-    paires: () => newPairs(),
+    duel: () => newDuel(),
+    pendu: () => newPendu(),
+    annee: () => newAnnee(),
     chrono: () => newChrono()
   }
 };
@@ -81,181 +83,10 @@ GAMES.arcadeEnd = {
       <div class="row"><button class="btn primary big" type="button" data-act="again">Rejouer</button><button class="btn" type="button" data-act="games">Changer de jeu</button></div>`;
   },
   act: {
-    again: () => ({ etoiles: newStars, paires: newPairs, chrono: newChrono }[game.kind])(),
+    again: () => ({ pendu: newPendu, annee: newAnnee, chrono: newChrono }[game.kind])(),
     games: () => goGames()
   }
 };
-
-/* ---------- Pluie d'étoiles ---------- */
-const STARS_DURATION = 45;
-function newStars() {
-  stopArcade();
-  game = { kind: "etoiles", score: 0, combo: 0, best: 0, objs: [], parts: [], elapsed: 0, spawn: 0, shake: 0, last: performance.now() };
-  screen = "etoiles";
-  render();
-}
-GAMES.etoiles = {
-  html() {
-    say("");
-    return `
-      <div class="hud"><span>Temps <b id="sTime">${STARS_DURATION}</b></span><span>Score <b id="sScore">0</b></span><span>Série <b id="sCombo">×1</b></span></div>
-      <canvas id="playfield" class="playfield" aria-label="Zone de jeu : touche les étoiles dorées, évite les comètes"></canvas>
-      <p class="hint-line">Touche les étoiles dorées · les grosses valent 5 · évite les comètes rouges</p>`;
-  },
-  after() {
-    const cv = $("playfield"), ctx = cv.getContext("2d");
-    const size = () => { const r = cv.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2); cv.width = r.width * d; cv.height = r.height * d; };
-    size();
-    cv.onpointerdown = e => {
-      const r = cv.getBoundingClientRect(), d = cv.width / r.width;
-      const x = (e.clientX - r.left) * d, y = (e.clientY - r.top) * d;
-      let hit = null, bestDist = Infinity;
-      for (const o of game.objs) {
-        const dist = Math.hypot(o.x - x, o.y - y);
-        if (dist < o.r * 1.6 && dist < bestDist) { hit = o; bestDist = dist; }
-      }
-      if (hit) catchObj(hit);
-    };
-    const step = now => {
-      if (screen !== "etoiles") return;
-      const dt = Math.min(0.05, (now - game.last) / 1000); game.last = now;
-      updateStars(dt, cv);
-      drawStars(ctx, cv);
-      if (game.elapsed >= STARS_DURATION) return endArcade("etoiles", game.score, " points");
-      arcadeLoop = requestAnimationFrame(step);
-    };
-    arcadeLoop = requestAnimationFrame(step);
-  }
-};
-function catchObj(o) {
-  game.objs.splice(game.objs.indexOf(o), 1);
-  const burst = (n, color) => { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = 80 + Math.random() * 220; game.parts.push({ x: o.x, y: o.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.6, color }); } };
-  if (o.type === "comet") {
-    game.score = Math.max(0, game.score - 3); game.combo = 0; game.shake = 0.3;
-    burst(14, "#e88a72"); sfx("wrong");
-  } else {
-    game.combo++;
-    const mult = 1 + Math.floor(game.combo / 5);
-    game.score += (o.type === "big" ? 5 : 1) * mult;
-    burst(o.type === "big" ? 22 : 10, o.type === "big" ? "#f0e7d4" : "#e0b25c");
-    ping(440 * Math.pow(2, Math.min(game.combo, 24) / 12));
-  }
-  orb.kick = 1;
-}
-function updateStars(dt, cv) {
-  const W = cv.width, H = cv.height, k = H / 600;
-  game.elapsed += dt;
-  game.spawn -= dt;
-  if (game.spawn <= 0) {
-    game.spawn = Math.max(0.22, 0.75 - game.elapsed * 0.012);
-    const r = Math.random(), cometShare = 0.16 + game.elapsed * 0.003;
-    const type = r < 0.06 ? "big" : r < 0.06 + cometShare ? "comet" : "star";
-    const rad = (type === "big" ? 26 : type === "comet" ? 20 : 17) * Math.max(k, 0.8);
-    game.objs.push({ type, r: rad, x: rad + Math.random() * (W - 2 * rad), y: -rad, vy: (95 + game.elapsed * 5 + Math.random() * 70) * k, spin: Math.random() * 6, vx: (Math.random() - 0.5) * 30 * k });
-  }
-  for (const o of game.objs) { o.y += o.vy * dt; o.x += o.vx * dt; o.spin += dt * 2; }
-  // une étoile ratée casse la série (sans perdre de points)
-  const missed = game.objs.filter(o => o.y - o.r > H);
-  if (missed.some(o => o.type !== "comet")) game.combo = 0;
-  game.objs = game.objs.filter(o => o.y - o.r <= H);
-  for (const p of game.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.life -= dt; }
-  game.parts = game.parts.filter(p => p.life > 0);
-  game.shake = Math.max(0, game.shake - dt);
-  $("sTime").textContent = Math.max(0, Math.ceil(STARS_DURATION - game.elapsed));
-  $("sScore").textContent = game.score;
-  $("sCombo").textContent = "×" + (1 + Math.floor(game.combo / 5));
-}
-function starPath(ctx, x, y, r, rot) {
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const a = rot + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r;
-    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
-  }
-  ctx.closePath();
-}
-function drawStars(ctx, cv) {
-  const W = cv.width, H = cv.height;
-  ctx.save();
-  ctx.clearRect(0, 0, W, H);
-  if (game.shake) ctx.translate((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
-  for (const o of game.objs) {
-    if (o.type === "comet") {
-      const g = ctx.createLinearGradient(o.x, o.y, o.x - o.vx * 0.4, o.y - o.r * 4);
-      g.addColorStop(0, "rgba(232,138,114,0.7)"); g.addColorStop(1, "rgba(232,138,114,0)");
-      ctx.strokeStyle = g; ctx.lineWidth = o.r * 1.2; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(o.x - o.vx * 0.4, o.y - o.r * 4); ctx.stroke();
-      ctx.fillStyle = "#7a2f25"; ctx.strokeStyle = "#e88a72"; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    } else {
-      ctx.shadowColor = "#e0b25c"; ctx.shadowBlur = o.type === "big" ? 30 : 16;
-      ctx.fillStyle = o.type === "big" ? "#f6d58b" : "#e0b25c";
-      starPath(ctx, o.x, o.y, o.r, o.spin); ctx.fill();
-      ctx.shadowBlur = 0;
-      if (o.type === "big") { ctx.strokeStyle = "rgba(240,231,212,.6)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(o.x, o.y, o.r * 1.35, 0, Math.PI * 2); ctx.stroke(); }
-    }
-  }
-  for (const p of game.parts) {
-    ctx.globalAlpha = Math.max(0, p.life / 0.6);
-    ctx.fillStyle = p.color;
-    ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.restore();
-}
-
-/* ---------- Paires d'étoiles ---------- */
-// huit symboles célestes dessinés en SVG (traits simples, couleur propre à chacun)
-const SYMBOLS = [
-  ["#e0b25c", '<polygon points="50,8 61,38 93,38 67,57 77,89 50,70 23,89 33,57 7,38 39,38"/>'],
-  ["#f0e7d4", '<path d="M62 10a40 40 0 1 0 0 80a32 32 0 1 1 0-80z"/>'],
-  ["#93cfa9", '<circle cx="50" cy="50" r="24"/><ellipse cx="50" cy="52" rx="44" ry="12" fill="none" stroke-width="6"/>'],
-  ["#e88a72", '<circle cx="66" cy="34" r="16"/><path d="M54 46L14 86M48 38L12 62M60 52L36 90" fill="none" stroke-width="7" stroke-linecap="round"/>'],
-  ["#f6d58b", '<circle cx="50" cy="50" r="20"/><path d="M50 6v14M50 80v14M6 50h14M80 50h14M19 19l10 10M71 71l10 10M19 81l10-10M71 29l10-10" fill="none" stroke-width="7" stroke-linecap="round"/>'],
-  ["#7fc3d6", '<path d="M8 50Q50 10 92 50Q50 90 8 50z"/><circle cx="50" cy="50" r="14" fill="#0b1517"/>'],
-  ["#c8a2e8", '<polygon points="50,6 86,50 50,94 14,50"/>'],
-  ["#b9cf93", '<path d="M50 50m-6 0a6 6 0 1 1 12 0a12 12 0 1 1-24 0a18 18 0 1 1 36 0a24 24 0 1 1-48 0a30 30 0 1 1 60 0" fill="none" stroke-width="6" stroke-linecap="round"/>']
-];
-const symbolSvg = n => { const [c, body] = SYMBOLS[n]; return `<svg viewBox="0 0 100 100" aria-hidden="true" fill="${c}" stroke="${c}">${body}</svg>`; };
-function newPairs() {
-  stopArcade();
-  const deck = shuffled([...Array(8).keys(), ...Array(8).keys()]);
-  game = { kind: "paires", deck, open: [], found: new Set(), moves: 0, lock: false, t0: 0 };
-  screen = "paires";
-  render();
-}
-GAMES.paires = {
-  html() {
-    if (!game.moves) say("Retrouve les paires.");
-    return `
-      <div class="hud"><span>Coups <b id="pMoves">${game.moves}</b></span><span>Paires <b>${game.found.size} / 8</b></span></div>
-      <div class="memory">${game.deck.map((s, i) => {
-        const up = game.open.includes(i) || game.found.has(s);
-        return `<button class="mcard ${up ? "up" : ""} ${game.found.has(s) ? "done" : ""}" type="button" data-i="${i}" aria-label="${up ? "Carte retournée" : "Carte face cachée"}">
-          <span class="face back"></span><span class="face front">${symbolSvg(s)}</span></button>`;
-      }).join("")}</div>`;
-  },
-  after() {
-    document.querySelectorAll(".mcard").forEach(b => b.onclick = () => flipCard(+b.dataset.i));
-  }
-};
-function flipCard(i) {
-  if (game.lock || game.open.includes(i) || game.found.has(game.deck[i])) return;
-  if (!game.t0) game.t0 = performance.now();
-  game.open.push(i);
-  ping(520, "sine", 0.12);
-  if (game.open.length === 2) {
-    game.moves++;
-    const [a, b] = game.open;
-    if (game.deck[a] === game.deck[b]) {
-      game.found.add(game.deck[a]); game.open = [];
-      ping(780, "triangle", 0.3); orb.kick = 1;
-      if (game.found.size === 8) { render(); return setTimeout(() => screen === "paires" && endArcade("paires", game.moves, " coups", true), 700); }
-    } else {
-      game.lock = true;
-      setTimeout(() => { if (screen !== "paires") return; game.open = []; game.lock = false; render(); }, 800);
-    }
-  }
-  render();
-}
 
 /* ---------- Chronologie du cinéma ---------- */
 const CHRONO_ROUNDS = 10, CHRONO_CARDS = 5;
@@ -329,3 +160,137 @@ GAMES.chrono = {
     next: () => nextChrono()
   }
 };
+
+/* ---------- Le Pendu ---------- */
+// des noms connus de tous : titres de films et séries, célébrités et personnages, choses du quotidien
+const PENDU_LIVES = 7;
+const plainUpper = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
+function penduPool() {
+  const fit = name => { const letters = plainUpper(name).replace(/[^A-Z]/g, ""); return letters.length >= 4 && name.length <= 30 && letters.length / name.length > 0.7; };
+  const films = chronoPool().slice(0, 250).map(c => ({ word: c.name, kind: c.serie ? "Une série" : "Un film", hint: c.desc }));
+  const people = PERSONNAGES.map(s => s.split("|")).filter(([, , t = ""]) => !/(^| )(proche|famille|toi)( |$)/.test(t))
+    .map(([name, desc, t = ""]) => ({ word: name, kind: /(^| )(reel|vivant)( |$)/.test(t) ? "Une personne réelle" : "Un personnage de fiction", hint: desc }));
+  const things = CHOSES.map(s => s.split("|")).map(([name, desc]) => ({ word: name, kind: "Une chose (animal, objet, aliment…)", hint: desc }));
+  return [...films, ...people, ...things].filter(x => fit(x.word));
+}
+function newPendu() {
+  game = { kind: "pendu", streak: 0, used: new Set(), pool: penduPool() };
+  nextPendu();
+}
+function nextPendu() {
+  const item = pick(game.pool.filter(x => !game.used.has(x.word)));
+  game.used.add(item.word);
+  Object.assign(game, { item, letters: new Set(), misses: 0, done: null });
+  screen = "pendu"; orb.mood = "idle"; orb.conf = 1;
+  render();
+}
+const penduSolved = () => [...plainUpper(game.item.word)].every(ch => !/[A-Z]/.test(ch) || game.letters.has(ch));
+function penduLetter(L) {
+  if (game.done || game.letters.has(L)) return;
+  game.letters.add(L);
+  if (plainUpper(game.item.word).includes(L)) {
+    ping(500 + game.letters.size * 20, "sine", 0.12);
+    if (penduSolved()) {
+      game.streak++; game.done = "win";
+      orb.mood = "surprised"; sfx("win");
+      render();
+      const m = document.querySelector(".word"); if (m) confetti(m);
+      return;
+    }
+  } else {
+    game.misses++;
+    sfx("wrong"); orb.kick = 1;
+    orb.mood = game.misses >= PENDU_LIVES - 2 ? "sad" : "think";
+    if (game.misses >= PENDU_LIVES) { game.done = "lose"; sfx("lose"); }
+  }
+  orb.conf = 1 - game.misses / PENDU_LIVES;
+  render();
+}
+GAMES.pendu = {
+  html() {
+    const word = [...game.item.word].map(ch => {
+      const u = plainUpper(ch);
+      if (!/[A-Z]/.test(u)) return ch === " " ? '<span class="gap"></span>' : `<span class="sym">${esc(ch)}</span>`;
+      const shown = game.letters.has(u) || game.done;
+      return `<span class="slot ${shown ? "on" : ""} ${game.done === "lose" && !game.letters.has(u) ? "missed" : ""}">${shown ? esc(ch.toUpperCase()) : ""}</span>`;
+    }).join("");
+    const lives = Array.from({ length: PENDU_LIVES }, (_, k) => `<i class="${k < PENDU_LIVES - game.misses ? "on" : ""}"></i>`).join("");
+    if (!game.done) say(game.misses === 0 && !game.letters.size ? "Trouve le nom caché, lettre par lettre." : game.misses >= PENDU_LIVES - 2 ? "Attention, ma lumière faiblit…" : "");
+    else say(game.done === "win" ? pick(["Bravo !", "Bien joué.", "Rien ne t'échappe."]) : "Perdu !");
+    return `
+      <span class="eyebrow">Série en cours : ${game.streak} mot${game.streak > 1 ? "s" : ""}</span>
+      <span class="tag">${esc(game.item.kind)}</span>
+      <div class="word">${word}</div>
+      <div class="lives" aria-label="${PENDU_LIVES - game.misses} essais restants">${lives}</div>
+      ${!game.done && game.misses >= 4 && game.item.hint ? `<p class="lede">Indice : « ${esc(game.item.hint)} »</p>` : ""}
+      ${game.done ? `<div class="row"><button class="btn primary big" type="button" data-act="${game.done === "win" ? "next" : "end"}">${game.done === "win" ? "Mot suivant" : "Voir mon score"}</button></div>`
+        : `<div class="keys">${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(L => {
+            const used = game.letters.has(L), good = used && plainUpper(game.item.word).includes(L);
+            return `<button class="key ${used ? (good ? "good" : "bad") : ""}" type="button" data-l="${L}" ${used ? "disabled" : ""}>${L}</button>`;
+          }).join("")}</div>`}`;
+  },
+  after() {
+    document.querySelectorAll(".key").forEach(b => b.onclick = () => penduLetter(b.dataset.l));
+  },
+  act: { next: () => nextPendu(), end: () => endArcade("pendu", game.streak, " mots") }
+};
+// clavier physique
+document.addEventListener("keydown", e => {
+  if (screen !== "pendu" || !game || game.done || e.target.tagName === "INPUT" || e.ctrlKey || e.metaKey) return;
+  const L = plainUpper(e.key);
+  if (/^[A-Z]$/.test(L)) penduLetter(L);
+});
+
+/* ---------- Devine l'année ---------- */
+const YEAR_ROUNDS = 10, YEAR_MIN = 1920, YEAR_MAX = new Date().getFullYear();
+const GENRES = [["comedie", "comédie"], ["drame", "drame"], ["action", "action"], ["horreur", "horreur"], ["sf", "science-fiction"],
+  ["fantastique", "fantastique"], ["animation", "animation"], ["policier", "policier"], ["romance", "romance"], ["superheros", "super-héros"], ["guerre", "guerre"], ["western", "western"]];
+function newAnnee() {
+  const pool = chronoPool();
+  const tags = new Map((typeof OEUVRES_DATA !== "undefined" ? OEUVRES_DATA : []).map(e => [e[0], " " + e[3] + " "]));
+  game = { kind: "annee", round: 0, score: 0, items: shuffled(pool).slice(0, YEAR_ROUNDS).map(c => ({ ...c, genres: GENRES.filter(([k]) => (tags.get(c.name) || "").includes(" " + k + " ")).map(([, l]) => l).slice(0, 2) })) };
+  if (game.items.length < YEAR_ROUNDS) return goGames();
+  nextAnnee();
+}
+function nextAnnee() {
+  if (game.round >= YEAR_ROUNDS) return endArcade("annee", game.score, " / 1000");
+  Object.assign(game, { round: game.round + 1, item: game.items[game.round], guess: 2000, done: false, last: 0 });
+  screen = "annee"; orb.mood = "idle";
+  render();
+}
+GAMES.annee = {
+  html() {
+    const it = game.item;
+    const diff = Math.abs(game.guess - it.year);
+    if (!game.done) say(pick(["En quelle année ?", "Fais confiance à ta mémoire.", "Plutôt récent, ou vieux classique ?"]));
+    else say(diff === 0 ? "L'année exacte !" : diff <= 2 ? "Tout près !" : diff <= 6 ? "Pas mal." : "Raté de loin.");
+    return `
+      <span class="eyebrow">Manche ${game.round} sur ${YEAR_ROUNDS} · score ${game.score}</span>
+      <span class="tag">${it.serie ? "Série" : "Film"}${it.genres.length ? " · " + it.genres.join(", ") : ""}</span>
+      <h2 class="question">${esc(it.name)}</h2>
+      <div class="year-big" id="yearBig">${game.guess}</div>
+      ${game.done ? `<p class="lede">Sorti en <b>${it.year}</b> : ${diff === 0 ? "dans le mille" : `écart de ${diff} an${diff > 1 ? "s" : ""}`}, <b>+${game.last} points</b>.</p>
+        <div class="row"><button class="btn primary big" type="button" data-act="next">${game.round < YEAR_ROUNDS ? "Suivant" : "Voir mon score"}</button></div>`
+        : `<input class="year-range" id="yearIn" type="range" min="${YEAR_MIN}" max="${YEAR_MAX}" step="1" value="${game.guess}" aria-label="Année de sortie">
+           <div class="year-scale"><span>${YEAR_MIN}</span><span>${YEAR_MAX}</span></div>
+           <div class="row"><button class="btn" type="button" data-act="minus">−1</button><button class="btn primary big" type="button" data-act="check">Valider</button><button class="btn" type="button" data-act="plus">+1</button></div>`}`;
+  },
+  after() {
+    const r = $("yearIn");
+    if (r) r.oninput = () => { game.guess = +r.value; $("yearBig").textContent = game.guess; };
+  },
+  act: {
+    minus: () => { game.guess = Math.max(YEAR_MIN, game.guess - 1); $("yearIn").value = game.guess; $("yearBig").textContent = game.guess; },
+    plus: () => { game.guess = Math.min(YEAR_MAX, game.guess + 1); $("yearIn").value = game.guess; $("yearBig").textContent = game.guess; },
+    check: () => {
+      const diff = Math.abs(game.guess - game.item.year);
+      game.last = Math.max(0, 100 - 8 * diff);
+      game.score += game.last; game.done = true;
+      sfx(diff <= 2 ? "win" : diff <= 6 ? "guess" : "wrong");
+      orb.mood = diff <= 2 ? "happy" : "idle";
+      render();
+    },
+    next: () => nextAnnee()
+  }
+};
+
