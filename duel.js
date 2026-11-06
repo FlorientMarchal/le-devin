@@ -156,6 +156,7 @@ GAMES.duel = {
     document.querySelectorAll(".qbtn").forEach(b => b.onclick = () => duelQuestion(QS[b.dataset.q]));
     const f = $("duelForm");
     if (f) {
+      if (matchMedia("(hover: hover)").matches) $("duelIn").focus();   // sur téléphone, on n'ouvre pas le clavier d'office
       f.onsubmit = e => { e.preventDefault(); duelQuestion($("duelIn").value); };
       $("duelIn").oninput = () => {
         const text = $("duelIn").value.trim();

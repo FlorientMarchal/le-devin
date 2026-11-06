@@ -50,7 +50,8 @@ function makeSudoku(level) {
 function newSudoku() {
   const level = mem.sudokuLevel in SUDOKU_HOLES ? mem.sudokuLevel : "moyen";
   const { puzzle, solution } = makeSudoku(level);
-  game = { kind: "sudoku", level, given: puzzle.map(Boolean), cells: puzzle.slice(), solution, sel: puzzle.indexOf(0), errors: 0, t0: performance.now() };
+  game = { kind: "sudoku", level, given: puzzle.map(Boolean), cells: puzzle.slice(), solution, sel: puzzle.indexOf(0), errors: 0, t0: performance.now(),
+    notes: Array.from({ length: 81 }, () => new Set()), noteMode: false };
   screen = "sudoku"; orb.mood = "sure";
   render();
 }
@@ -58,9 +59,22 @@ const clock = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 function sudokuPut(d) {
   const i = game.sel;
   if (i < 0 || game.given[i] || game.done) return;
+  // mode notes : on coche ou décoche un petit chiffre dans une case vide
+  if (game.noteMode && d && !game.cells[i]) {
+    const n = game.notes[i];
+    if (n.has(d)) n.delete(d); else n.add(d);
+    ping(700, "sine", 0.05);
+    return sudokuPaint();
+  }
   game.cells[i] = d;
+  if (!d) game.notes[i].clear();
   if (d && d !== game.solution[i]) { game.errors++; sfx("wrong"); }
-  else if (d) ping(500 + d * 30, "sine", 0.1);
+  else if (d) {
+    ping(500 + d * 30, "sine", 0.1);
+    // un chiffre juste efface la note correspondante dans sa ligne, sa colonne et son bloc
+    game.notes[i].clear();
+    for (const j of peersOf[i]) game.notes[j].delete(d);
+  }
   if (game.cells.every((v, k) => v === game.solution[k])) {
     game.done = true;
     const secs = Math.round((performance.now() - game.t0) / 1000);
@@ -77,14 +91,27 @@ function cellClass(i) {
     c % 3 === 2 && c < 8 ? "br" : "", r % 3 === 2 && r < 8 ? "bb" : ""].join(" ");
 }
 const cellLabel = i => `Ligne ${Math.floor(i / 9) + 1}, colonne ${i % 9 + 1}${game.cells[i] ? ", " + game.cells[i] : ", vide"}`;
+// contenu d'une case : son chiffre, ou ses notes en petits chiffres
+const cellInner = i => (game.cells[i] ? String(game.cells[i]) : game.notes[i].size
+  ? `<span class="notes">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<i>${game.notes[i].has(d) ? d : ""}</i>`).join("")}</span>` : "");
+// combien de fois il reste à placer chaque chiffre (bien placé)
+const remainingOf = d => 9 - game.cells.filter((v, k) => v === d && v === game.solution[k]).length;
+const padKey = d => `${d}<small>${remainingOf(d) || ""}</small>`;
 // met à jour la grille sur place, sans la reconstruire
 function sudokuPaint() {
   document.querySelectorAll(".cell").forEach(b => {
-    const i = +b.dataset.i;
+    const i = +b.dataset.i, inner = cellInner(i);
     b.className = cellClass(i);
-    b.textContent = game.cells[i] || "";
+    if (b.dataset.v !== inner) { b.dataset.v = inner; b.innerHTML = inner; }
     b.setAttribute("aria-label", cellLabel(i));
   });
+  document.querySelectorAll(".pad .key[data-d]").forEach(b => {
+    const d = +b.dataset.d;
+    if (!d) return;
+    b.innerHTML = padKey(d);
+    b.disabled = !remainingOf(d);
+  });
+  const nb = $("sdNotes"); if (nb) { nb.setAttribute("aria-pressed", game.noteMode); nb.textContent = game.noteMode ? "Notes : oui" : "Notes : non"; }
   const e = $("sdErr"); if (e) e.textContent = game.errors;
 }
 GAMES.sudoku = {
@@ -93,10 +120,12 @@ GAMES.sudoku = {
     return `
       <div class="hud"><span>Niveau <b>${game.level}</b></span><span>Temps <b id="sdTime">${clock(Math.round((performance.now() - game.t0) / 1000))}</b></span><span>Erreurs <b id="sdErr">${game.errors}</b></span></div>
       <div class="sudoku" role="grid" aria-label="Grille de sudoku">${game.cells.map((v, i) =>
-        `<button class="${cellClass(i)}" type="button" data-i="${i}" aria-label="${cellLabel(i)}">${v || ""}</button>`).join("")}</div>
-      <div class="pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<button class="key" type="button" data-d="${d}">${d}</button>`).join("")}<button class="key wide" type="button" data-d="0">Effacer</button></div>
+        `<button class="${cellClass(i)}" type="button" data-i="${i}" data-v="${cellInner(i)}" aria-label="${cellLabel(i)}">${cellInner(i)}</button>`).join("")}</div>
+      <div class="pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<button class="key" type="button" data-d="${d}" ${remainingOf(d) ? "" : "disabled"}>${padKey(d)}</button>`).join("")}<button class="key wide" type="button" data-d="0">Effacer</button></div>
+      <p class="hint-line">Touche une case puis un chiffre. En mode notes, les chiffres s'inscrivent en petit, comme au crayon.</p>
       <div class="row"><label class="level">Niveau
         <select id="sdLevel">${Object.keys(SUDOKU_HOLES).map(l => `<option value="${l}" ${l === game.level ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <button class="btn" type="button" id="sdNotes" data-act="notes" aria-pressed="${game.noteMode}">${game.noteMode ? "Notes : oui" : "Notes : non"}</button>
         <button class="btn ghost" type="button" data-act="fresh">Nouvelle grille</button></div>`;
   },
   after() {
@@ -110,11 +139,12 @@ GAMES.sudoku = {
       const el = $("sdTime"); if (el) el.textContent = clock(Math.round((performance.now() - game.t0) / 1000));
     }, 500);
   },
-  act: { fresh: () => newSudoku() }
+  act: { fresh: () => newSudoku(), notes: () => { game.noteMode = !game.noteMode; sudokuPaint(); } }
 };
 document.addEventListener("keydown", e => {
   if (screen !== "sudoku" || !game || game.done || e.target.tagName === "SELECT") return;
   if (/^[1-9]$/.test(e.key)) sudokuPut(+e.key);
+  else if (e.key.toLowerCase() === "n") { game.noteMode = !game.noteMode; sudokuPaint(); }
   else if (["Backspace", "Delete", "0"].includes(e.key)) { e.preventDefault(); sudokuPut(0); }
   else {
     const mv = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -9, ArrowDown: 9 }[e.key];
@@ -135,7 +165,7 @@ function makeCalc(level) {
   const b = rnd(2, big ? 15 : 10), q = rnd(2, big ? 15 : 10); return [`${b * q} ÷ ${b}`, q];
 }
 function newCalc() {
-  game = { kind: "calcul", score: 0, t0: performance.now(), flash: null };
+  game = { kind: "calcul", score: 0, t0: 0, started: false, flash: null };
   [game.q, game.answer] = makeCalc(0);
   screen = "calcul"; orb.mood = "sure";
   render();
@@ -155,6 +185,12 @@ function calcSubmit(v) {
 GAMES.calcul = {
   html() {
     say("");
+    // le chrono ne démarre qu'une fois le joueur prêt
+    if (!game.started) return `
+      <span class="eyebrow">Calcul mental</span>
+      <h2 class="question">60 secondes pour enchaîner un maximum de calculs.</h2>
+      <p class="lede">Ça commence doucement, puis ça se corse au fil des bonnes réponses. Tape le résultat et valide avec Entrée.</p>
+      <div class="row"><button class="btn primary big" type="button" data-act="go">Je suis prêt</button></div>`;
     const left = Math.max(0, CALC_TIME - Math.floor((performance.now() - game.t0) / 1000));
     return `
       <div class="hud"><span>Temps <b id="clTime">${left}</b></span><span>Bonnes réponses <b id="clScore">${game.score}</b></span></div>
@@ -167,6 +203,7 @@ GAMES.calcul = {
   },
   after() {
     const input = $("calcIn");
+    if (!input) return;
     input.focus();
     $("calcForm").onsubmit = e => { e.preventDefault(); calcSubmit(input.value); };
     clearInterval(GAMES.calcul.timer);
@@ -176,7 +213,8 @@ GAMES.calcul = {
       const el = $("clTime"); if (el) el.textContent = left;
       if (left <= 0) { clearInterval(GAMES.calcul.timer); endArcade("calcul", game.score, " bonnes réponses"); }
     }, 250);
-  }
+  },
+  act: { go: () => { game.started = true; game.t0 = performance.now(); sfx("start"); render(); } }
 };
 
 /* ---------- Suites logiques ---------- */

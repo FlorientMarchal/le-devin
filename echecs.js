@@ -257,6 +257,20 @@ function chessTexts() {
   const last = game.last && !game.thinking && st.turn === "w" && game.history.length ? `Le Devin a joué ${NAMES[game.last.piece.toLowerCase()]} ${sqName(game.last.from)}–${sqName(game.last.to)}.` : "";
   return { check, status, last };
 }
+// pièces prises de chaque côté (d'après ce qui manque sur l'échiquier) et avance matérielle
+const START_COUNT = { p: 8, n: 2, b: 2, r: 2, q: 1 };
+function captured() {
+  const count = {};
+  for (const p of game.st.board) if (p) count[p] = (count[p] || 0) + 1;
+  const lost = white => Object.entries(START_COUNT).flatMap(([k, n]) => {
+    const missing = Math.max(0, n - (count[white ? k.toUpperCase() : k] || 0));
+    return Array(missing).fill(k);
+  });
+  const byYou = lost(false), byDevin = lost(true);
+  const score = byYou.reduce((a, k) => a + VAL[k], 0) - byDevin.reduce((a, k) => a + VAL[k], 0);
+  const row = (list, white) => list.map(k => `<span class="pc ${white ? "w" : "b"}">${GLYPH[k]}\uFE0E</span>`).join("");
+  return { you: row(byYou, false) + (score > 0 ? ` <em>+${Math.round(score / 100)}</em>` : ""), devin: row(byDevin, true) + (score < 0 ? ` <em>+${Math.round(-score / 100)}</em>` : "") };
+}
 const chessTargets = () => (game.sel >= 0 ? legalMoves(game.st).filter(m => m.from === game.sel).map(m => m.to) : []);
 // met à jour l'échiquier sur place, sans le reconstruire (seules les cases qui changent sont touchées)
 function chessPaint() {
@@ -270,6 +284,7 @@ function chessPaint() {
   const st = $("chStatus"); st.textContent = status; st.classList.toggle("warn", check);
   $("chLast").textContent = last;
   const u = $("chUndo"); if (u) u.disabled = !game.history.length || game.thinking;
+  const cap = captured(); $("chCapYou").innerHTML = cap.you; $("chCapDevin").innerHTML = cap.devin;
   say(game.thinking ? "Hmm…" : check ? "Échec !" : "");
 }
 GAMES.echecs = {
@@ -279,10 +294,14 @@ GAMES.echecs = {
     return `
       <span class="eyebrow">Échecs · niveau ${game.level}</span>
       <p class="chess-status ${check ? "warn" : ""}" id="chStatus" aria-live="polite">${status}</p>
+      <div class="captured" title="Pièces prises par le Devin" id="chCapDevin">${captured().devin}</div>
       <div class="chessboard" role="grid" aria-label="Échiquier">${game.st.board.map((_, sq) => {
         const v = squareView(sq, targets, check);
-        return `<button class="${v.cls}" type="button" data-sq="${sq}" data-p="${v.p}" aria-label="${v.label}">${pieceHtml(v.p)}</button>`;
+        // coordonnées sur le bord : chiffres à gauche, lettres en bas
+        const coords = `${(sq & 7) === 0 ? ` data-rank="${8 - (sq >> 3)}"` : ""}${sq >> 3 === 7 ? ` data-file="${"abcdefgh"[sq & 7]}"` : ""}`;
+        return `<button class="${v.cls}" type="button" data-sq="${sq}" data-p="${v.p}"${coords} aria-label="${v.label}">${pieceHtml(v.p)}</button>`;
       }).join("")}</div>
+      <div class="captured" title="Pièces que tu as prises" id="chCapYou">${captured().you}</div>
       <p class="hint-line" id="chLast">${last}</p>
       <div class="row">
         ${game.over ? `<button class="btn primary big" type="button" data-act="again">Nouvelle partie</button>` : `<button class="btn ghost" type="button" id="chUndo" data-act="undo" ${game.history.length && !game.thinking ? "" : "disabled"}>Annuler mon coup</button>`}

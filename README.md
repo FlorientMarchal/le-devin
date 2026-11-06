@@ -6,7 +6,7 @@ Pense à quelqu'un (une star, un héros de manga, toi-même, quelqu'un de ta fam
 
 ## D'autres jeux
 
-Le bouton « Changer de jeu », en haut de l'écran, mène à tous les jeux, rangés en deux onglets.
+La page d'accueil présente tous les jeux, rangés en deux onglets ; le bouton « Tous les jeux » (ou le titre « Le Devin ») y ramène à tout moment.
 
 **Culture et devinettes**
 
@@ -18,8 +18,8 @@ Le bouton « Changer de jeu », en haut de l'écran, mène à tous les jeux, ran
 
 **Logique et maths**
 
-- **Échecs** : une partie complète contre le Devin (roque, prise en passant, promotion, échec et mat, pat), trois niveaux, coup annulable. Le moteur cherche par alpha-bêta jusqu'à 4 demi-coups.
-- **Sudoku** : une grille générée à chaque partie, avec une solution unique garantie, trois niveaux, erreurs signalées, chronomètre.
+- **Échecs** : une partie complète contre le Devin (roque, prise en passant, promotion, échec et mat, pat), trois niveaux, coup annulable, coordonnées et pièces prises affichées. Le moteur cherche par alpha-bêta jusqu'à 4 demi-coups.
+- **Sudoku** : une grille générée à chaque partie, avec une solution unique garantie, trois niveaux, erreurs signalées, mode notes, chiffres restants, chronomètre.
 - **Calcul mental** : 60 secondes de calculs de plus en plus durs.
 - **Suites logiques** : trouve le nombre suivant (douze types de suites), avec l'explication. Dix manches.
 
@@ -56,4 +56,4 @@ Chaque jeu garde ton record dans ton navigateur.
 - `oeuvres.js` — les questions du mode films et séries ; `oeuvres-data.js` les titres générés (`node tools/build-oeuvres.mjs`).
 - `wikidata.js` — les entrées générées. Pour les régénérer : `node tools/build-wikidata.mjs` (Node 18+, interroge le service public QLever et les statistiques de lecture de Wikipédia, environ 10 minutes).
 
-Aucune dépendance, aucun build : il suffit d'ouvrir `index.html` via un serveur web.
+Aucune dépendance, aucun build : il suffit d'ouvrir `index.html` via un serveur web. Les gros fichiers de données (`wikidata.js`, `oeuvres-data.js`) sont chargés à la demande, après le premier affichage.

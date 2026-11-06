@@ -63,17 +63,17 @@ GAMES.hub = {
         </button>`).join("")}</div>`;
   },
   act: {
-    devin: () => { screen = "intro"; render(); },
+    devin: async () => { await ensureMode(mode); screen = "intro"; render(); },
     tabCulture: () => { mem.hubTab = "culture"; saveMem(); sfx("tick"); render(); },
     tabLogique: () => { mem.hubTab = "logique"; saveMem(); sfx("tick"); render(); },
     echecs: () => newChess(),
     sudoku: () => newSudoku(),
     calcul: () => newCalc(),
     suites: () => newSuites(),
-    duel: () => newDuel(),
-    pendu: () => newPendu(),
-    annee: () => newAnnee(),
-    chrono: () => newChrono()
+    duel: async () => { await ensureMode(mode); newDuel(); },
+    pendu: async () => { await loadData(DATA_FILE.oeuvre); newPendu(); },
+    annee: async () => { await loadData(DATA_FILE.oeuvre); newAnnee(); },
+    chrono: async () => { await loadData(DATA_FILE.oeuvre); newChrono(); }
   }
 };
 
@@ -284,6 +284,14 @@ document.addEventListener("keydown", e => {
 });
 
 /* ---------- Devine l'année ---------- */
+// Entrée valide (ou passe à la suite), les flèches ajustent l'année
+document.addEventListener("keydown", e => {
+  if (screen !== "annee" || !game || game.kind !== "annee" || e.target.tagName === "SELECT") return;
+  const acts = GAMES.annee.act;
+  if (e.key === "Enter") { e.preventDefault(); game.done ? acts.next() : acts.check(); }
+  else if (!game.done && e.target.id !== "yearIn" && (e.key === "ArrowLeft" || e.key === "ArrowDown")) { e.preventDefault(); acts.minus(); }
+  else if (!game.done && e.target.id !== "yearIn" && (e.key === "ArrowRight" || e.key === "ArrowUp")) { e.preventDefault(); acts.plus(); }
+});
 const YEAR_ROUNDS = 10, YEAR_MIN = 1920, YEAR_MAX = new Date().getFullYear();
 const GENRES = [["comedie", "comédie"], ["drame", "drame"], ["action", "action"], ["horreur", "horreur"], ["sf", "science-fiction"],
   ["fantastique", "fantastique"], ["animation", "animation"], ["policier", "policier"], ["romance", "romance"], ["superheros", "super-héros"], ["guerre", "guerre"], ["western", "western"]];
@@ -315,7 +323,8 @@ GAMES.annee = {
         <div class="row"><button class="btn primary big" type="button" data-act="next">${game.round < YEAR_ROUNDS ? "Suivant" : "Voir mon score"}</button></div>`
         : `<input class="year-range" id="yearIn" type="range" min="${YEAR_MIN}" max="${YEAR_MAX}" step="1" value="${game.guess}" aria-label="Année de sortie">
            <div class="year-scale"><span>${YEAR_MIN}</span><span>${YEAR_MAX}</span></div>
-           <div class="row"><button class="btn" type="button" data-act="minus">−1</button><button class="btn primary big" type="button" data-act="check">Valider</button><button class="btn" type="button" data-act="plus">+1</button></div>`}`;
+           <div class="row"><button class="btn" type="button" data-act="minus">−1</button><button class="btn primary big" type="button" data-act="check">Valider</button><button class="btn" type="button" data-act="plus">+1</button></div>
+           <p class="hint-line">Glisse le curseur, ou utilise les flèches du clavier et Entrée.</p>`}`;
   },
   after() {
     const r = $("yearIn");

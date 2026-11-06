@@ -277,7 +277,12 @@ h2.question { font-size: clamp(1.45rem, 3.8vw, 2.1rem); min-height: 2.4em; displ
 .sq.d { background: #6f8f86; }
 .sq.last { box-shadow: inset 0 0 0 100px rgba(224, 178, 92, .35); }
 .sq.sel { box-shadow: inset 0 0 0 3px var(--brass), inset 0 0 0 100px rgba(224, 178, 92, .35); }
-.sq.dot::after { content: ""; width: 26%; height: 26%; border-radius: 50%; background: rgba(11, 21, 23, .35); }
+.sq.dot { background-image: radial-gradient(circle, rgba(11, 21, 23, .38) 0 13%, transparent 14%); }
+.sq[data-rank]::before { content: attr(data-rank); position: absolute; top: 2px; left: 3px; font: 600 .6rem var(--f-mono); color: rgba(11, 21, 23, .6); }
+.sq[data-file]::after { content: attr(data-file); position: absolute; bottom: 1px; right: 3px; font: 600 .6rem var(--f-mono); color: rgba(11, 21, 23, .6); }
+.captured { min-height: 1.6em; width: min(100%, 480px); display: flex; flex-wrap: wrap; align-items: center; gap: 1px; }
+.captured .pc { font-size: 1.15rem; }
+.captured em { font-style: normal; font-family: var(--f-mono); font-size: .75rem; color: var(--mist); margin-left: 6px; }
 .sq.cap { box-shadow: inset 0 0 0 4px rgba(232, 138, 114, .8); }
 .sq.chk { box-shadow: inset 0 0 0 100px rgba(232, 138, 114, .55); }
 .pc { font-size: min(9vw, 46px); line-height: 1; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", serif; }
@@ -295,7 +300,12 @@ h2.question { font-size: clamp(1.45rem, 3.8vw, 2.1rem); min-height: 2.4em; displ
 .cell.br { border-right: 2px solid var(--brass-deep); }
 .cell.bb { border-bottom: 2px solid var(--brass-deep); }
 .pad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; width: 100%; max-width: 450px; }
-.pad .key { font-size: 1.1rem; }
+.pad .key { font-size: 1.1rem; display: flex; align-items: baseline; justify-content: center; gap: 3px; }
+.pad .key small { font-size: .6rem; color: var(--mist); }
+.pad .key:disabled { opacity: .3; }
+.cell .notes { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; height: 100%; padding: 2px; }
+.cell .notes i { font-style: normal; font-size: min(2.2vw, .62rem); color: var(--mist); display: grid; place-items: center; line-height: 1; }
+#sdNotes[aria-pressed="true"] { border-color: var(--brass); color: var(--brass); }
 .pad .wide { font-size: .85rem; }
 .calc-q { font-family: var(--f-display); font-size: clamp(2.2rem, 9vw, 3.6rem); line-height: 1.1; font-variant-numeric: tabular-nums; text-align: center; }
 .calc-q.seq { font-size: clamp(1.5rem, 6vw, 2.4rem); }
@@ -305,6 +315,8 @@ h2.question { font-size: clamp(1.45rem, 3.8vw, 2.1rem); min-height: 2.4em; displ
 .calc-form input:focus { border-color: var(--brass); outline: none; }
 .hint-line { font-size: .85rem; color: var(--mist); margin: 0; }
 .hint-line.bad { color: var(--rose); }
+
+body.loading #card { opacity: .55; pointer-events: none; transition: opacity .2s; }
 
 /* Le Duel */
 .duelbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 560px; }
@@ -344,11 +356,11 @@ footer.foot kbd { font-family: var(--f-mono); border: 1px solid var(--ink-3); bo
 <canvas id="sky" aria-hidden="true"></canvas>
 <div class="app">
   <header class="top">
-    <button class="brand" id="brand" type="button" title="Revenir à l'accueil">Le Devin <small>lecteur de pensées</small></button>
+    <button class="brand" id="brand" type="button" title="Tous les jeux">Le Devin <small>lecteur de pensées</small></button>
     <div class="top-right">
       <span class="stats" id="stats"></span>
       <button class="pill" id="homeTop" type="button" hidden>Changer de thème</button>
-      <button class="pill" id="gamesTop" type="button">Changer de jeu</button>
+      <button class="pill" id="gamesTop" type="button">Tous les jeux</button>
       <button class="pill" id="sound" type="button" aria-pressed="true">Son : activé</button>
     </div>
   </header>
@@ -361,16 +373,14 @@ footer.foot kbd { font-family: var(--f-mono); border: 1px solid var(--ink-3); bo
     </section>
   </main>
 
-  <footer class="foot">Clavier : <kbd>1</kbd>–<kbd>5</kbd> pour répondre, <kbd>⌫</kbd> pour revenir en arrière</footer>
+  <footer class="foot" id="foot" hidden>Clavier : <kbd>1</kbd>–<kbd>5</kbd> pour répondre, <kbd>⌫</kbd> pour revenir en arrière</footer>
 </div>
 <canvas id="fx" aria-hidden="true"></canvas>
 
-<script src="personnages.js?v=20261109"></script>
-<script src="wikidata.js?v=20261109"></script>
-<script src="choses.js?v=20261109"></script>
-<script src="oeuvres.js?v=20261109"></script>
-<script src="oeuvres-data.js?v=20261109"></script>
-<script src="comprendre.js?v=20261109"></script>
+<script src="personnages.js?v=20261111"></script>
+<script src="choses.js?v=20261111"></script>
+<script src="oeuvres.js?v=20261111"></script>
+<script src="comprendre.js?v=20261111"></script>
 <script>
 /* ---------- Données ---------- */
 function applyTags(t, tags, implique) {
@@ -388,12 +398,15 @@ function applyTags(t, tags, implique) {
   }
   return t;
 }
-const WIKI_DATA = typeof WIKI !== "undefined" ? WIKI : { defaults: {}, curated: {}, entries: [] };
+// Fiches générées depuis Wikidata (wikidata.js) : chargées à la demande, voir ensureMode
+const wiki = () => (typeof WIKI !== "undefined" ? WIKI : { defaults: {}, curated: {}, entries: [], newKeys: [] });
 // Traits ajoutés après coup : pour les fiches faites main, on les reprend de Wikidata quand elles y sont rapprochées
-const NEW_KEYS = new Set(WIKI_DATA.newKeys || []);
+let NEW_KEYS = new Set();
 const DEFAULTS = {};
-for (const [kind, d] of Object.entries(WIKI_DATA.defaults)) {
-  DEFAULTS[kind] = { zero: new Set(d.zero.split(" ")), soft: new Set(d.soft.split(" ")) };
+function initWiki() {
+  const W = wiki();
+  NEW_KEYS = new Set(W.newKeys || []);
+  for (const [kind, d] of Object.entries(W.defaults)) DEFAULTS[kind] = { zero: new Set(d.zero.split(" ")), soft: new Set(d.soft.split(" ")) };
 }
 if (typeof OEUVRES_DEFAULTS !== "undefined") DEFAULTS.o = { zero: new Set(OEUVRES_DEFAULTS.zero.split(" ")), soft: new Set(OEUVRES_DEFAULTS.soft.split(" ")) };
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
@@ -516,7 +529,7 @@ const MODES = {
     labels: [["proche", "Ton entourage"], ["reel", "Personne réelle"], ["marvel", "Comics"], ["disney", "Disney"], ["anime", "Manga"], ["jeu", "Jeu vidéo"], ["bd", "BD"], ["serie", "Série"], ["film", "Cinéma"], ["livre", "Livre"], ["dessin", "Dessin animé"], ["mythe", "Légende"]],
     items() {
       const list = PERSONNAGES.map(s => this.parse(s));
-      for (const [name, desc, sl, kind, tags] of WIKI_DATA.entries) {
+      for (const [name, desc, sl, kind, tags] of wiki().entries) {
         list.push({ name, desc: cap(desc) || (kind === "h" ? "Personnalité" : "Personnage de fiction"), t: applyTags({}, tags, IMPLIQUE), sl, kind });
       }
       return list;
@@ -524,7 +537,7 @@ const MODES = {
     parse(s, custom) {
       const [name, desc, tags = ""] = s.split("|");
       const t = applyTags({}, tags, IMPLIQUE);
-      const extra = WIKI_DATA.curated[name];
+      const extra = wiki().curated[name];
       if (extra) {
         const w = applyTags({}, extra[1], IMPLIQUE);
         for (const k of NEW_KEYS) if (!(k in t) && w[k]) t[k] = w[k];
@@ -638,7 +651,34 @@ function buildMatrix(from = 0) {
   if (built[mode]) { built[mode].M = M; built[mode].PRIOR = PRIOR; }
 }
 function refreshChar(i) { for (let j = 0; j < A; j++) M[i * A + j] = EPS + (1 - 2 * EPS) * value(CHARS[i], KEYS[j]); }
-useMode(mode);
+// Chargement à la demande des gros fichiers de données (la page s'ouvre sans eux)
+const VERSION = "20261111";
+const DATA_FILE = { personnage: "wikidata.js", oeuvre: "oeuvres-data.js" };
+const loads = {};
+function loadData(file) {
+  if (!loads[file]) loads[file] = new Promise((ok, ko) => {
+    const el = document.createElement("script");
+    el.src = `${file}?v=${VERSION}`;
+    el.onload = ok;
+    el.onerror = () => { delete loads[file]; ko(new Error(`${file} introuvable`)); };
+    document.head.appendChild(el);
+  }).then(() => { if (file === DATA_FILE.personnage) initWiki(); });
+  return loads[file];
+}
+// Prépare un thème : charge ses fiches si besoin (avec un mot d'attente), puis construit sa matrice
+async function ensureMode(m, quiet = false) {
+  const waiting = !quiet && !built[m] && DATA_FILE[m];
+  if (waiting) { say("Je consulte mes fiches…"); document.body.classList.add("loading"); }
+  try {
+    if (DATA_FILE[m]) await loadData(DATA_FILE[m]);
+  } catch (e) {
+    say("Impossible de charger mes fiches. Vérifie ta connexion et réessaie.");
+    throw e;
+  } finally {
+    document.body.classList.remove("loading");
+  }
+  useMode(m);
+}
 
 // toutes les réponses connues, y compris celles déduites (« homme » ⇒ pas « femme »)
 function known() {
@@ -1018,11 +1058,12 @@ function updateReverse(fresh) {
 }
 
 // Retour à l'accueil pour choisir un autre thème (abandonne la partie en cours)
-function goHome() {
+async function goHome() {
   if (screen === "intro") return;
   // la partie abandonnée ne doit plus rien déclencher (réflexion en cours, proposition suivante, jeu d'arcade)
   if (typeof stopArcade === "function") stopArcade();
   game = null; busy = false; current = null; guessing = null;
+  await ensureMode(mode);
   screen = "intro"; orb.mood = "idle"; orb.conf = 0.04;
   sfx("tick");
   render();
@@ -1057,7 +1098,7 @@ const TXT = {
 };
 const T = () => TXT[mode];
 const $ = id => document.getElementById(id);
-$("brand").onclick = goHome;
+$("brand").onclick = () => goGames();
 $("homeTop").onclick = goHome;
 $("gamesTop").onclick = () => goGames();
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
@@ -1112,6 +1153,7 @@ function render() {
   const arcade = typeof ARCADE_SCREENS !== "undefined" && ARCADE_SCREENS.has(screen);
   $("homeTop").hidden = screen === "intro" || screen === "hub" || arcade;
   $("gamesTop").hidden = screen === "hub";
+  $("foot").hidden = screen !== "question";
   $("stage").classList.toggle("arcade", arcade);
   $("stage").classList.toggle("board", screen === "echecs" || screen === "sudoku");
   const n = game && game.answers ? game.answers.length : 0;
@@ -1279,7 +1321,7 @@ function bind() {
   });
   document.querySelectorAll(".mode[data-mode]").forEach(b => b.onclick = () => {
     if (b.dataset.mode === mode) return;
-    useMode(b.dataset.mode); mem.mode = mode; saveMem(); fame = null; sfx("tick"); render();
+    ensureMode(b.dataset.mode).then(() => { mem.mode = mode; saveMem(); fame = null; nameCandidates = null; sfx("tick"); render(); });
   });
   document.querySelectorAll(".uni").forEach(b => b.onclick = () => { tickerFilter = b.dataset.u; tickOnce(); sfx("tick"); });
   const gf = $("guessForm");
@@ -1335,11 +1377,13 @@ function tickOnce() {
 }
 function startTicker() { tickerFilter = null; tickOnce(); tickerTimer = setInterval(tickOnce, 1700); }
 
+const DEVIN_SCREENS = new Set(["intro", "question", "guess", "win", "lose", "taught", "reverse", "revealed"]);
+// le bilan des parties du Devin, seulement dans ses écrans
 function renderStats() {
   const parts = [];
-  if (mem.games) parts.push(`Devin : ${mem.wins}/${mem.games}`);
-  if (mem.revGames) parts.push(`toi : ${mem.revWins || 0}/${mem.revGames}`);
-  $("stats").textContent = parts.join(" · ");
+  if (mem.games) parts.push(`Le Devin a trouvé ${mem.wins} fois sur ${mem.games}`);
+  if (mem.revGames) parts.push(`toi ${mem.revWins || 0} sur ${mem.revGames}`);
+  $("stats").textContent = DEVIN_SCREENS.has(screen) ? parts.join(" · ") : "";
 }
 function renderSound() {
   $("sound").textContent = mem.sound ? "Son : activé" : "Son : coupé";
@@ -1547,11 +1591,21 @@ function drawOrb(now, dt) {
 /* ---------- Ciel étoilé ---------- */
 const sky = $("sky"), sctx = sky.getContext("2d");
 const stars = Array.from({ length: 170 }, () => ({ x: Math.random(), y: Math.random(), z: 0.2 + Math.random() * 0.8, tw: Math.random() * 6 }));
+// le fond dégradé est dessiné une fois (à chaque redimensionnement), puis recopié ; le ciel est redessiné 20 fois par seconde
+let skyBg = null, skyWait = 0;
 function drawSky(now, dt) {
+  skyWait -= dt;
+  if (skyWait > 0) return;
+  skyWait = 0.05;
   const W = sky.width, H = sky.height, d = Math.min(devicePixelRatio || 1, 2);
-  const g = sctx.createRadialGradient(W * 0.3, 0, 0, W * 0.3, 0, Math.max(W, H));
-  g.addColorStop(0, "#16292d"); g.addColorStop(0.6, "#0b1517"); g.addColorStop(1, "#091113");
-  sctx.fillStyle = g; sctx.fillRect(0, 0, W, H);
+  if (!skyBg || skyBg.width !== W || skyBg.height !== H) {
+    skyBg = document.createElement("canvas"); skyBg.width = W; skyBg.height = H;
+    const bctx = skyBg.getContext("2d");
+    const g = bctx.createRadialGradient(W * 0.3, 0, 0, W * 0.3, 0, Math.max(W, H));
+    g.addColorStop(0, "#16292d"); g.addColorStop(0.6, "#0b1517"); g.addColorStop(1, "#091113");
+    bctx.fillStyle = g; bctx.fillRect(0, 0, W, H);
+  }
+  sctx.drawImage(skyBg, 0, 0);
   const px = (pointer.x / innerWidth - 0.5), py = (pointer.y / innerHeight - 0.5);
   for (const s of stars) {
     const x = (s.x * W - px * 14 * s.z * d + W) % W, y = (s.y * H - py * 14 * s.z * d + H) % H;
@@ -1602,10 +1656,12 @@ function confetti(el) {
     });
   }
 }
+let fxDirty = false;   // le calque des effets n'est effacé que s'il contient quelque chose
 function drawFx(dt) {
   const d = Math.min(devicePixelRatio || 1, 2);
+  if (!sparks.length) { if (fxDirty) { fctx.clearRect(0, 0, fxCv.width, fxCv.height); fxDirty = false; } return; }
   fctx.clearRect(0, 0, fxCv.width, fxCv.height);
-  if (!sparks.length) return;
+  fxDirty = true;
   const next = [];
   for (const p of sparks) {
     if (p.kind === "fly") {
@@ -1646,13 +1702,22 @@ function loop(now) {
 }
 resize();
 renderSound();
-render();
 requestAnimationFrame(loop);
+// premier affichage : la page de tous les jeux (définie dans arcade.js, chargé après ce script),
+// puis les fiches se chargent en tâche de fond pour que les jeux démarrent sans attendre
+addEventListener("DOMContentLoaded", () => {
+  screen = "hub";
+  render();
+  setTimeout(() => {
+    ensureMode(mode, true).catch(() => {});
+    loadData(DATA_FILE.oeuvre).catch(() => {});
+  }, 300);
+});
 </script>
-<script src="jeux.js?v=20261109"></script>
-<script src="arcade.js?v=20261109"></script>
-<script src="duel.js?v=20261109"></script>
-<script src="echecs.js?v=20261109"></script>
-<script src="logique.js?v=20261109"></script>
+<script src="jeux.js?v=20261111"></script>
+<script src="arcade.js?v=20261111"></script>
+<script src="duel.js?v=20261111"></script>
+<script src="echecs.js?v=20261111"></script>
+<script src="logique.js?v=20261111"></script>
 </body>
 </html>
