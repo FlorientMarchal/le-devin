@@ -201,6 +201,28 @@ h2.question { font-size: clamp(1.45rem, 3.8vw, 2.1rem); min-height: 2.4em; displ
 .guess-desc { color: var(--mist); margin-top: -10px; }
 .tag { font-family: var(--f-mono); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--brass); border: 1px solid var(--brass-deep); border-radius: 999px; padding: 3px 10px; }
 
+/* Les Indices et L'Intrus */
+.clues { list-style: none; margin: 0; padding: 0; width: 100%; max-width: 560px; display: grid; gap: 8px; text-align: left; }
+.clues li { display: flex; gap: 12px; align-items: baseline; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 12px; padding: 10px 14px; }
+.clues li span { font-family: var(--f-mono); font-size: .75rem; color: var(--brass); min-width: 1.2em; }
+.clues li.new { border-color: var(--brass-deep); animation: fade .4s ease; }
+.cards4 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 560px; }
+.pickcard {
+  background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: var(--r); padding: 14px 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; min-width: 0;
+  transition: border-color .15s, transform .15s, opacity .2s;
+}
+.pickcard:hover:not(:disabled) { border-color: var(--brass); transform: translateY(-2px); }
+.pickcard b { font-weight: 600; }
+.pickcard small { color: var(--mist); font-size: .78rem; line-height: 1.3; overflow-wrap: anywhere; }
+.pickcard.odd { border-color: var(--sage); box-shadow: 0 0 0 1px var(--sage); }
+.pickcard.wrong { border-color: var(--rose); box-shadow: 0 0 0 1px var(--rose); }
+.pickcard.dim { opacity: .55; }
+.pickcard:disabled { cursor: default; }
+.mini { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-size: .8rem; color: #1b1407; }
+.score-big { font-family: var(--f-display); font-size: clamp(3.5rem, 12vw, 5.5rem); line-height: 1; color: var(--brass); font-variant-numeric: tabular-nums; }
+.score-big small { font-size: .35em; color: var(--mist); margin-left: .2em; }
+
 /* Apprentissage */
 .learn { width: 100%; max-width: 460px; display: grid; gap: 10px; text-align: left; }
 .learn label { font-size: .85rem; color: var(--mist); }
@@ -425,8 +447,8 @@ const MODES = {
     ],
     labels: [["anime", "Anime"], ["animation", "Animation"], ["serie", "Série"], ["film", "Film"]],
     items() {
-      return (typeof OEUVRES_DATA !== "undefined" ? OEUVRES_DATA : []).map(([name, desc, sl, tags]) =>
-        ({ name, desc: cap(desc) || "Film ou série", t: applyTags({}, tags, OEUVRES_IMPLIQUE), sl, kind: "o" }));
+      return (typeof OEUVRES_DATA !== "undefined" ? OEUVRES_DATA : []).map(([name, desc, sl, tags, hot = 0]) =>
+        ({ name, desc: cap(desc) || "Film ou série", t: applyTags({}, tags, OEUVRES_IMPLIQUE), sl, kind: "o", hot }));
     },
     parse(s, custom) {
       const [name, desc, tags = ""] = s.split("|");
@@ -762,13 +784,23 @@ function teach(name) {
 }
 
 /* ---------- Jeu inversé : le Devin choisit, le joueur pose les questions ---------- */
-let who = mem.who === "toi" ? "toi" : "devin";
-const start = () => (who === "toi" ? newReverse() : newGame());
+// le jeu choisi : le Devin devine, le joueur devine, Les Indices ou L'Intrus (jeux.js)
+let who = ["toi", "indices", "intrus"].includes(mem.who) ? mem.who : "devin";
+const GAMES = {};
+const start = () => ({ toi: newReverse, indices: newIndices, intrus: newIntrus }[who] || newGame)();
+// secrets possibles quand c'est le Devin qui choisit : les fiches faites main (connues de tous), ou les 400 titres les plus connus
+function famousPool() {
+  if (mode === "oeuvre") {
+    // les 400 titres les plus connus : répandus (langues Wikipédia) et lus récemment (mois parmi les pages les plus lues)
+    const fame = c => c.sl + 15 * (c.hot || 0);
+    return CHARS.map((_, i) => i).filter(i => !CHARS[i].custom).sort((a, b) => fame(CHARS[b]) - fame(CHARS[a])).slice(0, 400);
+  }
+  return CHARS.map((_, i) => i).filter(i => i < (mode === "chose" ? CHOSES.length : PERSONNAGES.length) && !CHARS[i].t.proche);
+}
 
 function newReverse() {
   // le secret : uniquement les fiches faites main, des célébrités et personnages connus de tous
-  const pool = mode === "oeuvre" ? byFame().filter(i => !CHARS[i].custom).slice(0, 400)
-    : CHARS.map((_, i) => i).filter(i => i < (mode === "chose" ? CHOSES.length : PERSONNAGES.length) && !CHARS[i].t.proche);
+  const pool = famousPool();
   game = { reverse: true, secret: pick(pool), answers: [], rejected: new Set(), guesses: 0, top: 0, last: null };
   screen = "reverse"; orb.mood = "sure"; orb.conf = 0.04;
   sfx("start");
@@ -984,10 +1016,17 @@ function render() {
   if (screen === "intro") {
     const counts = MODE.universes.map(([k, label]) => [k, label, CHARS.filter(c => c.t[k] === 1).length]);
     const toi = who === "toi";
+    const PLAY = {
+      indices: [{ personnage: "Je pense à quelqu'un.<br>Trouve-le avec le moins d'indices.", oeuvre: "Je pense à un film ou une série.<br>Trouve-le avec le moins d'indices.", chose: "Je pense à une chose.<br>Trouve-la avec le moins d'indices." }[mode],
+        "Cinq manches. Les indices arrivent du plus vague au plus précis, chacun coûte un point : propose dès que tu crois savoir.", "Commencer"],
+      intrus: ["Trois se ressemblent.<br>Trouve l'intrus.", "Dix manches de quatre noms : un seul n'a pas le point commun des trois autres.", "Commencer"]
+    }[who];
     html = `
-      <div class="modes" role="tablist" aria-label="Qui devine ?">
-        <button class="mode" type="button" role="tab" data-who="devin" aria-selected="${!toi}">Le Devin devine</button>
-        <button class="mode" type="button" role="tab" data-who="toi" aria-selected="${toi}">C'est toi qui devines</button>
+      <div class="modes" role="tablist" aria-label="À quoi jouer ?">
+        <button class="mode" type="button" role="tab" data-who="devin" aria-selected="${who === "devin"}">Le Devin devine</button>
+        <button class="mode" type="button" role="tab" data-who="toi" aria-selected="${toi}">Tu devines</button>
+        <button class="mode" type="button" role="tab" data-who="indices" aria-selected="${who === "indices"}">Les Indices</button>
+        <button class="mode" type="button" role="tab" data-who="intrus" aria-selected="${who === "intrus"}">L'Intrus</button>
       </div>
       <div class="modes" role="tablist" aria-label="À quoi penser ?">
         <button class="mode" type="button" role="tab" data-mode="personnage" aria-selected="${mode === "personnage"}">Un personnage</button>
@@ -995,10 +1034,10 @@ function render() {
         <button class="mode" type="button" role="tab" data-mode="chose" aria-selected="${mode === "chose"}">Un animal, un objet, un aliment</button>
       </div>
       <span class="eyebrow">${CHARS.length.toLocaleString("fr-FR")} ${T().count} · ${KEYS.length} questions</span>
-      <h1>${toi ? T().mine : T().think}</h1>
-      <p class="lede">${toi ? "Pose-moi des questions, je réponds honnêtement. Propose un nom dès que tu crois savoir." : T().lede}</p>
+      <h1>${PLAY ? PLAY[0] : toi ? T().mine : T().think}</h1>
+      <p class="lede">${PLAY ? PLAY[1] : toi ? "Pose-moi des questions, je réponds honnêtement. Propose un nom dès que tu crois savoir." : T().lede}</p>
       <div class="ticker">Par exemple… <b id="tick"></b></div>
-      <div class="row"><button class="btn primary big" id="start" type="button">${toi ? "Choisis, je pose mes questions" : "J'y pense, commence"}</button></div>
+      <div class="row"><button class="btn primary big" id="start" type="button">${PLAY ? PLAY[2] : toi ? "Choisis, je pose mes questions" : "J'y pense, commence"}</button></div>
       <div class="universes">${counts.map(([k, label, c]) => `<button class="uni" type="button" data-u="${k}">${label} <b>${c}</b></button>`).join("")}</div>`;
     say(mem.games ? pick(["Te revoilà ! Prêt pour une nouvelle partie ?", "J'ai appris depuis la dernière fois.", "Encore une ? Je suis en forme."]) : "Bonjour. Je lis dans les pensées. Tu veux essayer ?");
   } else if (screen === "question") {
@@ -1078,6 +1117,9 @@ function render() {
       <p class="lede">${esc(c.desc)}</p>
       <div class="row"><button class="btn primary big" id="again" type="button">Rejouer</button><button class="btn" id="home" type="button">Changer de thème</button></div>`;
     say(game.found ? pick(["Bravo, tu m'as démasqué !", "Impressionnant. Tu lis dans MES pensées ?", "Bien joué !"]) : pick(["Hé hé, trop fort pour toi ?", "La prochaine fois, peut-être !"]));
+  } else if (GAMES[screen]) {
+    if (!game) { screen = "intro"; return render(); }
+    html = GAMES[screen].html();
   } else if (screen === "taught") {
     html = `
       <span class="eyebrow">Leçon retenue</span>
@@ -1094,6 +1136,11 @@ function render() {
   if (screen === "reverse") updateReverse(false);
   renderStats();
   bind();
+  if (GAMES[screen]) {
+    if (GAMES[screen].after) GAMES[screen].after();
+    const acts = GAMES[screen].act || {};
+    document.querySelectorAll("[data-act]").forEach(b => b.onclick = () => acts[b.dataset.act] && acts[b.dataset.act]());
+  }
 }
 
 let fame = null;
@@ -1109,6 +1156,8 @@ function bind() {
   on("no", wrongGuess);
   on("again", () => {
     if (game && game.reverse) return newReverse();
+    if (game && game.kind === "indices") return newIndices();
+    if (game && game.kind === "intrus") return newIntrus();
     if (screen === "lose") { mem.games++; saveMem(); }
     newGame();
   });
@@ -1490,5 +1539,6 @@ renderSound();
 render();
 requestAnimationFrame(loop);
 </script>
+<script src="jeux.js"></script>
 </body>
 </html>

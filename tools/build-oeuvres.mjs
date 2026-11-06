@@ -3,6 +3,7 @@
 // Usage : node tools/build-oeuvres.mjs   (depuis la racine du dépôt, Node 18+)
 
 import fs from "node:fs";
+import { mostRead } from "./most-read.mjs";
 
 const ENDPOINT = "https://qlever.dev/api/wikidata";
 const PREFIX = `PREFIX wd: <http://www.wikidata.org/entity/>
@@ -61,7 +62,7 @@ const KEYWORDS = [
   [/comedy|sitcom|comédie/, "comedie"], [/\baction\b|martial arts/, "action"], [/horror|slasher|zombie|vampire/, "horreur"],
   [/science fiction|sci-fi|space opera|cyberpunk/, "sf"], [/fantasy/, "fantastique"], [/\bdrama\b/, "drame"],
   [/romance|romantic/, "romance"], [/thriller|suspense/, "thriller"], [/crime|detective|police|mystery|heist|gangster|neo-noir|film noir/, "policier"],
-  [/\bwar\b/, "guerre"], [/western/, "western"], [/musical/, "musical"], [/adventure/, "aventure"], [/historical|period drama|epic/, "historique"],
+  [/\bwar\b/, "guerre"], [/western/, "western"], [/musical/, "musical"], [/adventure/, "aventure"], [/historical|period drama|period film/, "historique"],
   [/biographical|biopic/, "biopic"], [/children|family|kids/, "enfants"], [/superhero/, "superheros action"], [/animated|animation|computer-animated|cartoon/, "animation"],
   [/\banime\b/, "anime animation japon"], [/teen|coming-of-age|high school/, "ado"], [/documentary/, "documentaire"], [/medical/, "medical"],
   [/marvel/, "marvel superheros"], [/\bdc\b|batman|superman|justice league/, "dc superheros"], [/star wars/, "starwars sf"], [/harry potter|wizarding world|fantastic beasts/, "harrypotter fantastique"],
@@ -120,6 +121,15 @@ async function main() {
   for (const r of await sparql(`SELECT ?p ?n WHERE { ${WORKS} ?p wdt:P2437 ?n }`)) { const e = get(r.p); e.seasons = Math.max(e.seasons || 0, +r.n); }
   for (const r of await sparql(`SELECT DISTINCT ?p WHERE { ${WORKS} ?p wdt:P582 ?end }`)) get(r.p).ended = true;
 
+  // popularité réelle : nombre de mois où le titre figure parmi les pages Wikipédia les plus lues (fr ou en)
+  console.log("Popularité (pages les plus lues de Wikipédia)…");
+  const hot = await mostRead();
+  for (const r of await sparql(`SELECT ?p ?t ?w WHERE { ${WORKS} ?a schema:about ?p ; schema:isPartOf ?w ; schema:name ?t .
+      VALUES ?w { <https://fr.wikipedia.org/> <https://en.wikipedia.org/> } }`)) {
+    const e = works.get(qid(r.p));
+    if (e) e.hot = Math.max(e.hot || 0, hot.get((r.w.includes("//fr.") ? "fr:" : "en:") + r.t.replace(/ /g, "_")) || 0);
+  }
+
   const entries = [];
   const seen = new Map();
   for (const e of works.values()) {
@@ -146,7 +156,7 @@ async function main() {
   }
   for (const e of seen.values()) {
     entries.push([e.name, (e.desc || "").slice(0, 90), e.sl,
-      Object.entries(e.tags).filter(([, v]) => v > 0).map(([k, v]) => (v === 1 ? k : `~${k}`)).join(" ")]);
+      Object.entries(e.tags).filter(([, v]) => v > 0).map(([k, v]) => (v === 1 ? k : `~${k}`)).join(" "), e.hot || 0]);
   }
   entries.sort((a, b) => b[2] - a[2]);
   const out = `/* Généré par tools/build-oeuvres.mjs le ${new Date().toISOString().slice(0, 10)} à partir de Wikidata (CC0). Ne pas modifier à la main. */

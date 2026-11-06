@@ -4,6 +4,7 @@
 
 import fs from "node:fs";
 import vm from "node:vm";
+import { mostRead } from "./most-read.mjs";
 
 const ENDPOINT = "https://qlever.dev/api/wikidata";
 const PREFIX = `PREFIX wd: <http://www.wikidata.org/entity/>
@@ -19,6 +20,8 @@ PREFIX ps: <http://www.wikidata.org/prop/statement/>
 
 // Seuils de notoriété (nombre d'articles Wikipédia dans toutes les langues)
 const HUMAN_MIN = 45, HUMAN_FR_MIN = 25, HUMAN_RECENT_MIN = 30, FICTION_MIN = 7;
+// Sélection finale (connus de tous) : présent dans le top des pages lues, ou au-delà de ces seuils de langues
+const GIANT_MIN = 150, FICTION_FAMOUS_MIN = 30;
 
 async function sparql(body) {
   for (let attempt = 1; attempt <= 5; attempt++) {
@@ -377,10 +380,22 @@ async function main() {
     taken.add(best.id);
     curated[name] = [best.sl, Object.entries(best.tags).filter(([, v]) => v > 0).map(([k, v]) => (v === 1 ? k : `~${k}`)).join(" ")];
   }
+  // Ne garder que les gens connus de tous : souvent lus sur Wikipédia, ou géants présents dans plus de 150 langues
+  console.log("Popularité (pages les plus lues de Wikipédia)…");
+  const hot = await mostRead();
+  const titles = await sparql(`SELECT ?p ?t ?w WHERE { { ${HUMANS} } UNION { ${FICTION} }
+    ?a schema:about ?p ; schema:isPartOf ?w ; schema:name ?t . VALUES ?w { <https://fr.wikipedia.org/> <https://en.wikipedia.org/> } }`);
+  for (const r of titles) {
+    const e = people.get(qid(r.p));
+    if (!e) continue;
+    const months = hot.get((r.w.includes("//fr.") ? "fr:" : "en:") + r.t.replace(/ /g, "_")) || 0;
+    e.hot = Math.max(e.hot || 0, months);
+  }
+  const famous = e => (e.hot || 0) >= 1 || (e.kind === "h" ? e.sl >= GIANT_MIN : e.sl >= FICTION_FAMOUS_MIN);
   // Une seule entrée par nom : la plus connue
   const byName = new Map();
   for (const e of people.values()) {
-    if (taken.has(e.id)) continue;
+    if (taken.has(e.id) || !famous(e)) continue;
     const k = norm(e.name);
     if (!k || (byName.has(k) && byName.get(k).sl >= e.sl)) continue;
     byName.set(k, e);
