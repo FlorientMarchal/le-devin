@@ -1,7 +1,7 @@
 /* D'autres jeux de culture, réunis sur la page « Changer de jeu » :
    Chronologie du cinéma, Le Pendu, Devine l'année. (Le Duel contre le Devin est dans duel.js.) */
 
-const ARCADE_SCREENS = new Set(["chrono", "pendu", "annee", "arcadeEnd"]);
+const ARCADE_SCREENS = new Set(["chrono", "pendu", "annee", "arcadeEnd", "echecs", "sudoku", "calcul", "suites"]);
 let arcadeLoop = null;
 function stopArcade() { if (arcadeLoop) cancelAnimationFrame(arcadeLoop); arcadeLoop = null; }
 function goGames() {
@@ -32,20 +32,29 @@ const bestOf = key => (mem.best || {})[key];
 
 /* ---------- Page des jeux ---------- */
 const GAME_LIST = [
-  { go: "devin", title: "Le Devin", kind: "Devinettes", text: "Il lit dans tes pensées, ou c'est toi qui le questionnes. Cinq façons de jouer, dont Les Indices et L'Intrus." },
-  { go: "duel", title: "Le Duel", kind: "Face au Devin", text: "Chacun choisit un secret. Questions à tour de rôle : le premier qui trouve le secret de l'autre gagne.", best: () => bestOf("duel") !== undefined ? `Victoires : ${bestOf("duel")}` : "" },
-  { go: "pendu", title: "Le Pendu", kind: "Mots", text: "Un titre de film, une célébrité ou une chose à reconstituer lettre par lettre. Sept erreurs permises, enchaîne les mots.", best: () => bestOf("pendu") !== undefined ? `Record : ${bestOf("pendu")} mots d'affilée` : "" },
-  { go: "annee", title: "Devine l'année", kind: "Culture", text: "Un film ou une série connu : en quelle année est-il sorti ? Plus tu es proche, plus tu marques. Dix manches.", best: () => bestOf("annee") !== undefined ? `Record : ${bestOf("annee")} / 1000` : "" },
-  { go: "chrono", title: "Chronologie du cinéma", kind: "Culture", text: "Cinq films et séries connus : remets-les dans l'ordre de sortie, du plus ancien au plus récent. Dix manches.", best: () => bestOf("chrono") !== undefined ? `Record : ${bestOf("chrono")} / 50` : "" }
+  { go: "devin", cat: "culture", title: "Le Devin", kind: "Devinettes", text: "Il lit dans tes pensées, ou c'est toi qui le questionnes. Cinq façons de jouer, dont Les Indices et L'Intrus." },
+  { go: "duel", cat: "culture", title: "Le Duel", kind: "Face au Devin", text: "Chacun choisit un secret. Questions à tour de rôle : le premier qui trouve le secret de l'autre gagne.", best: () => bestOf("duel") !== undefined ? `Victoires : ${bestOf("duel")}` : "" },
+  { go: "pendu", cat: "culture", title: "Le Pendu", kind: "Mots", text: "Un titre de film, une célébrité ou une chose à reconstituer lettre par lettre. Sept erreurs permises, enchaîne les mots.", best: () => bestOf("pendu") !== undefined ? `Record : ${bestOf("pendu")} mots d'affilée` : "" },
+  { go: "annee", cat: "culture", title: "Devine l'année", kind: "Culture", text: "Un film ou une série connu : en quelle année est-il sorti ? Plus tu es proche, plus tu marques. Dix manches.", best: () => bestOf("annee") !== undefined ? `Record : ${bestOf("annee")} / 1000` : "" },
+  { go: "echecs", cat: "logique", title: "Échecs", kind: "Stratégie", text: "Une partie complète contre le Devin, avec roque, prise en passant et promotion. Trois niveaux.", best: () => bestOf("echecs") !== undefined ? `Victoires : ${bestOf("echecs")}` : "" },
+  { go: "sudoku", cat: "logique", title: "Sudoku", kind: "Logique", text: "Une nouvelle grille à chaque fois, avec une seule solution. Trois niveaux, erreurs signalées.", best: () => { const b = ["facile", "moyen", "difficile"].filter(l => bestOf("sudoku-" + l) !== undefined).map(l => `${l} ${clock(bestOf("sudoku-" + l))}`); return b.length ? "Records : " + b.join(" · ") : ""; } },
+  { go: "calcul", cat: "logique", title: "Calcul mental", kind: "Maths", text: "60 secondes pour enchaîner un maximum de calculs, de plus en plus corsés.", best: () => bestOf("calcul") !== undefined ? `Record : ${bestOf("calcul")} bonnes réponses` : "" },
+  { go: "suites", cat: "logique", title: "Suites logiques", kind: "Logique", text: "2, 6, 18, 54… ? Trouve le nombre suivant, et découvre la règle. Dix manches.", best: () => bestOf("suites") !== undefined ? `Record : ${bestOf("suites")} / 10` : "" },
+  { go: "chrono", cat: "culture", title: "Chronologie du cinéma", kind: "Culture", text: "Cinq films et séries connus : remets-les dans l'ordre de sortie, du plus ancien au plus récent. Dix manches.", best: () => bestOf("chrono") !== undefined ? `Record : ${bestOf("chrono")} / 50` : "" }
 ];
 GAMES.hub = {
   free: true,
   html() {
     say(pick(["À quoi on joue ?", "J'ai plus d'un tour dans mon orbe.", "Choisis ton jeu."]));
+    const tab = mem.hubTab === "logique" ? "logique" : "culture";
     return `
       <span class="eyebrow">Tous les jeux</span>
       <h1>À quoi veux-tu jouer ?</h1>
-      <div class="gamecards">${GAME_LIST.map(g => `
+      <div class="modes" role="tablist" aria-label="Catégorie de jeux">
+        <button class="mode" type="button" role="tab" data-act="tabCulture" aria-selected="${tab === "culture"}">Culture et devinettes</button>
+        <button class="mode" type="button" role="tab" data-act="tabLogique" aria-selected="${tab === "logique"}">Logique et maths</button>
+      </div>
+      <div class="gamecards">${GAME_LIST.filter(g => g.cat === tab).map(g => `
         <button class="gamecard" type="button" data-act="${g.go}">
           <span class="tag">${g.kind}</span>
           <b>${g.title}</b>
@@ -55,6 +64,12 @@ GAMES.hub = {
   },
   act: {
     devin: () => { screen = "intro"; render(); },
+    tabCulture: () => { mem.hubTab = "culture"; saveMem(); sfx("tick"); render(); },
+    tabLogique: () => { mem.hubTab = "logique"; saveMem(); sfx("tick"); render(); },
+    echecs: () => newChess(),
+    sudoku: () => newSudoku(),
+    calcul: () => newCalc(),
+    suites: () => newSuites(),
     duel: () => newDuel(),
     pendu: () => newPendu(),
     annee: () => newAnnee(),
@@ -63,9 +78,9 @@ GAMES.hub = {
 };
 
 /* ---------- Fin de partie commune ---------- */
-function endArcade(kind, value, label, lowerIsBetter) {
+function endArcade(kind, value, label, lowerIsBetter, key = kind) {
   stopArcade();
-  const rec = arcadeRecord(kind, value, lowerIsBetter);
+  const rec = arcadeRecord(key, value, lowerIsBetter);
   game = { kind, arcadeEnd: true, value, label, rec };
   screen = "arcadeEnd"; orb.mood = rec.better ? "happy" : "idle";
   sfx(rec.better ? "win" : "guess");
@@ -78,12 +93,12 @@ GAMES.arcadeEnd = {
     say(game.rec.better ? "Nouveau record !" : "Encore une ?");
     return `
       <span class="eyebrow">${g.title} · partie terminée</span>
-      <div class="score-big">${game.value}<small>${game.label}</small></div>
-      <p class="lede">${game.rec.better ? "C'est ton nouveau record." : `Ton record : ${game.rec.best} ${game.label.trim()}.`}</p>
+      <div class="score-big">${game.kind === "sudoku" ? clock(game.value) : game.value}<small>${game.kind === "sudoku" ? "" : game.label}</small></div>
+      <p class="lede">${game.kind === "sudoku" ? "Grille terminée. " : ""}${game.rec.better ? "C'est ton nouveau record." : `Ton record : ${game.kind === "sudoku" ? clock(game.rec.best) : game.rec.best + " " + game.label.trim()}.`}</p>
       <div class="row"><button class="btn primary big" type="button" data-act="again">Rejouer</button><button class="btn" type="button" data-act="games">Changer de jeu</button></div>`;
   },
   act: {
-    again: () => ({ pendu: newPendu, annee: newAnnee, chrono: newChrono }[game.kind])(),
+    again: () => ({ pendu: newPendu, annee: newAnnee, chrono: newChrono, sudoku: newSudoku, calcul: newCalc, suites: newSuites }[game.kind])(),
     games: () => goGames()
   }
 };

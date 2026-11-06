@@ -6,13 +6,22 @@ Pense à quelqu'un (une star, un héros de manga, toi-même, quelqu'un de ta fam
 
 ## D'autres jeux
 
-Le bouton « Changer de jeu », en haut de l'écran, mène à tous les jeux :
+Le bouton « Changer de jeu », en haut de l'écran, mène à tous les jeux, rangés en deux onglets.
+
+**Culture et devinettes**
 
 - **Le Devin** : les jeux de devinettes décrits plus bas.
 - **Le Duel** : toi et le Devin choisissez chacun un secret et vous interrogez à tour de rôle ; le premier qui trouve gagne.
 - **Le Pendu** : un titre de film, une célébrité ou une chose à reconstituer lettre par lettre, sept erreurs permises, enchaîne les mots.
 - **Devine l'année** : en quelle année est sorti ce film ou cette série ? 100 points pour l'année exacte, moins 8 par année d'écart. Dix manches.
 - **Chronologie du cinéma** : remets cinq films et séries connus dans l'ordre de sortie. Dix manches.
+
+**Logique et maths**
+
+- **Échecs** : une partie complète contre le Devin (roque, prise en passant, promotion, échec et mat, pat), trois niveaux, coup annulable. Le moteur cherche par alpha-bêta jusqu'à 4 demi-coups.
+- **Sudoku** : une grille générée à chaque partie, avec une solution unique garantie, trois niveaux, erreurs signalées, chronomètre.
+- **Calcul mental** : 60 secondes de calculs de plus en plus durs.
+- **Suites logiques** : trouve le nombre suivant (douze types de suites), avec l'explication. Dix manches.
 
 Chaque jeu garde ton record dans ton navigateur.
 
@@ -42,6 +51,8 @@ Chaque jeu garde ton record dans ton navigateur.
 - `jeux.js` — Les Indices et L'Intrus.
 - `arcade.js` — la page des jeux, Le Pendu, Devine l'année et Chronologie du cinéma.
 - `duel.js` — Le Duel contre le Devin.
+- `echecs.js` — les échecs (règles et adversaire).
+- `logique.js` — Sudoku, Calcul mental et Suites logiques.
 - `oeuvres.js` — les questions du mode films et séries ; `oeuvres-data.js` les titres générés (`node tools/build-oeuvres.mjs`).
 - `wikidata.js` — les entrées générées. Pour les régénérer : `node tools/build-wikidata.mjs` (Node 18+, interroge le service public QLever et les statistiques de lecture de Wikipédia, environ 10 minutes).
 
