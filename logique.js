@@ -64,31 +64,43 @@ function sudokuPut(d) {
   if (game.cells.every((v, k) => v === game.solution[k])) {
     game.done = true;
     const secs = Math.round((performance.now() - game.t0) / 1000);
-    render();
+    sudokuPaint();
     return setTimeout(() => screen === "sudoku" && endArcade("sudoku", secs, " s", true, `sudoku-${game.level}`), 600);
   }
-  render();
+  sudokuPaint();
+}
+// classes d'une case : donnée, sélectionnée, même ligne/colonne/bloc, même chiffre, erreur, bordures des blocs
+function cellClass(i) {
+  const sel = game.sel, v = game.cells[i], r = Math.floor(i / 9), c = i % 9;
+  return ["cell", game.given[i] ? "given" : "", i === sel ? "sel" : sel >= 0 && peersOf[sel].includes(i) ? "peer" : "",
+    v && sel >= 0 && v === game.cells[sel] ? "same" : "", v && !game.given[i] && v !== game.solution[i] ? "err" : "",
+    c % 3 === 2 && c < 8 ? "br" : "", r % 3 === 2 && r < 8 ? "bb" : ""].join(" ");
+}
+const cellLabel = i => `Ligne ${Math.floor(i / 9) + 1}, colonne ${i % 9 + 1}${game.cells[i] ? ", " + game.cells[i] : ", vide"}`;
+// met à jour la grille sur place, sans la reconstruire
+function sudokuPaint() {
+  document.querySelectorAll(".cell").forEach(b => {
+    const i = +b.dataset.i;
+    b.className = cellClass(i);
+    b.textContent = game.cells[i] || "";
+    b.setAttribute("aria-label", cellLabel(i));
+  });
+  const e = $("sdErr"); if (e) e.textContent = game.errors;
 }
 GAMES.sudoku = {
   html() {
-    const sel = game.sel, selVal = sel >= 0 ? game.cells[sel] : 0;
-    const peers = sel >= 0 ? new Set(peersOf[sel]) : new Set();
     say("");
     return `
-      <div class="hud"><span>Niveau <b>${game.level}</b></span><span>Temps <b id="sdTime">${clock(Math.round((performance.now() - game.t0) / 1000))}</b></span><span>Erreurs <b>${game.errors}</b></span></div>
-      <div class="sudoku" role="grid" aria-label="Grille de sudoku">${game.cells.map((v, i) => {
-        const r = Math.floor(i / 9), c = i % 9;
-        const cls = [game.given[i] ? "given" : "", i === sel ? "sel" : peers.has(i) ? "peer" : "", v && v === selVal ? "same" : "",
-          v && !game.given[i] && v !== game.solution[i] ? "err" : "", c % 3 === 2 && c < 8 ? "br" : "", r % 3 === 2 && r < 8 ? "bb" : ""].join(" ");
-        return `<button class="cell ${cls}" type="button" data-i="${i}" aria-label="Ligne ${r + 1}, colonne ${c + 1}${v ? ", " + v : ", vide"}">${v || ""}</button>`;
-      }).join("")}</div>
+      <div class="hud"><span>Niveau <b>${game.level}</b></span><span>Temps <b id="sdTime">${clock(Math.round((performance.now() - game.t0) / 1000))}</b></span><span>Erreurs <b id="sdErr">${game.errors}</b></span></div>
+      <div class="sudoku" role="grid" aria-label="Grille de sudoku">${game.cells.map((v, i) =>
+        `<button class="${cellClass(i)}" type="button" data-i="${i}" aria-label="${cellLabel(i)}">${v || ""}</button>`).join("")}</div>
       <div class="pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => `<button class="key" type="button" data-d="${d}">${d}</button>`).join("")}<button class="key wide" type="button" data-d="0">Effacer</button></div>
       <div class="row"><label class="level">Niveau
         <select id="sdLevel">${Object.keys(SUDOKU_HOLES).map(l => `<option value="${l}" ${l === game.level ? "selected" : ""}>${l}</option>`).join("")}</select></label>
         <button class="btn ghost" type="button" data-act="fresh">Nouvelle grille</button></div>`;
   },
   after() {
-    document.querySelectorAll(".cell").forEach(b => b.onclick = () => { game.sel = +b.dataset.i; render(); });
+    document.querySelectorAll(".cell").forEach(b => b.onclick = () => { game.sel = +b.dataset.i; sudokuPaint(); });
     document.querySelectorAll(".pad .key").forEach(b => b.onclick = () => sudokuPut(+b.dataset.d));
     const s = $("sdLevel");
     if (s) s.onchange = () => { mem.sudokuLevel = s.value; saveMem(); newSudoku(); };
@@ -106,7 +118,7 @@ document.addEventListener("keydown", e => {
   else if (["Backspace", "Delete", "0"].includes(e.key)) { e.preventDefault(); sudokuPut(0); }
   else {
     const mv = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -9, ArrowDown: 9 }[e.key];
-    if (mv) { e.preventDefault(); game.sel = Math.min(80, Math.max(0, (game.sel < 0 ? 0 : game.sel) + mv)); render(); }
+    if (mv) { e.preventDefault(); game.sel = Math.min(80, Math.max(0, (game.sel < 0 ? 0 : game.sel) + mv)); sudokuPaint(); }
   }
 });
 
@@ -133,20 +145,25 @@ function calcSubmit(v) {
   if (+v === game.answer) { game.score++; game.flash = "ok"; ping(520 + Math.min(game.score, 20) * 20, "triangle", 0.1); orb.kick = 1; }
   else { game.flash = `${game.q} = ${game.answer}`; sfx("wrong"); }
   [game.q, game.answer] = makeCalc(game.score);
-  render();
+  $("calcQ").textContent = `${game.q} = ?`;
+  $("clScore").textContent = game.score;
+  const msg = $("calcMsg");
+  msg.textContent = game.flash === "ok" ? "Juste !" : `Non : ${game.flash}`;
+  msg.classList.toggle("bad", game.flash !== "ok");
+  const input = $("calcIn"); input.value = ""; input.focus();
 }
 GAMES.calcul = {
   html() {
     say("");
     const left = Math.max(0, CALC_TIME - Math.floor((performance.now() - game.t0) / 1000));
     return `
-      <div class="hud"><span>Temps <b id="clTime">${left}</b></span><span>Bonnes réponses <b>${game.score}</b></span></div>
-      <div class="calc-q">${game.q} = ?</div>
+      <div class="hud"><span>Temps <b id="clTime">${left}</b></span><span>Bonnes réponses <b id="clScore">${game.score}</b></span></div>
+      <div class="calc-q" id="calcQ">${game.q} = ?</div>
       <form class="calc-form" id="calcForm" autocomplete="off">
         <input id="calcIn" inputmode="numeric" pattern="[0-9]*" aria-label="Ta réponse" placeholder="?">
         <button class="btn primary big" type="submit">Valider</button>
       </form>
-      <p class="hint-line ${game.flash && game.flash !== "ok" ? "bad" : ""}">${game.flash === "ok" ? "Juste !" : game.flash ? `Non : ${esc(game.flash)}` : "Tape le résultat puis Entrée."}</p>`;
+      <p class="hint-line ${game.flash && game.flash !== "ok" ? "bad" : ""}" id="calcMsg" aria-live="polite">${game.flash === "ok" ? "Juste !" : game.flash ? `Non : ${esc(game.flash)}` : "Tape le résultat puis Entrée."}</p>`;
   },
   after() {
     const input = $("calcIn");

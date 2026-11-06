@@ -120,7 +120,16 @@ function moreClue() {
   if (game.done || game.shown >= game.clues.length) return;
   game.shown++;
   sfx("tick");
-  render();
+  indicesPaint();
+}
+const cluesHtml = () => game.clues.slice(0, game.shown).map((t, k) => `<li class="${k === game.shown - 1 ? "new" : ""}"><span>${k + 1}</span>${esc(t)}</li>`).join("");
+const pointsLabel = () => { const pts = indicesPoints(); return `${pts} point${pts > 1 ? "s" : ""} si tu trouves maintenant`; };
+// ajoute l'indice et met à jour les points sur place : ce que tu as commencé à taper reste en place
+function indicesPaint() {
+  $("indClues").innerHTML = cluesHtml();
+  $("indPts").textContent = pointsLabel();
+  const more = document.querySelector('[data-act="clue"]');
+  if (more) more.disabled = game.shown >= game.clues.length;
 }
 function guessIndices(name) {
   if (game.done || !name.trim()) return;
@@ -135,7 +144,8 @@ function guessIndices(name) {
   sfx("wrong"); orb.mood = "happy";
   if (game.shown >= game.clues.length) return passIndices();
   game.shown++;
-  render();
+  indicesPaint();
+  $("indIn").value = ""; $("indSugg").innerHTML = "";
   say(pick(["Non ! Voici un indice de plus.", "Raté. Un autre indice ?", "Ce n'est pas ça."]));
 }
 function passIndices() {
@@ -155,13 +165,12 @@ GAMES.indices = {
         <p class="lede">${game.done === "win" ? `Trouvé avec ${game.shown} indice${game.shown > 1 ? "s" : ""} : <b>+${game.last} point${game.last > 1 ? "s" : ""}</b>.` : "Raté pour cette fois : 0 point."}</p>
         <div class="row"><button class="btn primary big" data-act="next" type="button">${game.round < ROUNDS_INDICES ? "Manche suivante" : "Voir mon score"}</button></div>`;
     }
-    const pts = indicesPoints();
     say(game.shown === 1 ? pick(["Premier indice. Facile ?", "J'ai choisi. À toi !", "Voyons si tu me lis dans les pensées."]) : pick(["Ça t'aide ?", "Tu chauffes ?", "Allez…"]));
     return `${head}
       <h2 class="question">${WHOQ[mode]}</h2>
-      <ol class="clues">${game.clues.slice(0, game.shown).map((t, k) => `<li class="${k === game.shown - 1 ? "new" : ""}"><span>${k + 1}</span>${esc(t)}</li>`).join("")}</ol>
+      <ol class="clues" id="indClues">${cluesHtml()}</ol>
       <form class="learn" id="indForm" autocomplete="off">
-        <label for="indIn">${pts} point${pts > 1 ? "s" : ""} si tu trouves maintenant</label>
+        <label for="indIn" id="indPts">${pointsLabel()}</label>
         <div class="guess-row"><input id="indIn" placeholder="${T().guessPh}"><button class="btn primary" type="submit">Proposer</button></div>
         <div class="sugg" id="indSugg"></div>
       </form>

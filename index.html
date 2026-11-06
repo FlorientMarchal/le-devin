@@ -365,12 +365,12 @@ footer.foot kbd { font-family: var(--f-mono); border: 1px solid var(--ink-3); bo
 </div>
 <canvas id="fx" aria-hidden="true"></canvas>
 
-<script src="personnages.js?v=20261108"></script>
-<script src="wikidata.js?v=20261108"></script>
-<script src="choses.js?v=20261108"></script>
-<script src="oeuvres.js?v=20261108"></script>
-<script src="oeuvres-data.js?v=20261108"></script>
-<script src="comprendre.js?v=20261108"></script>
+<script src="personnages.js?v=20261109"></script>
+<script src="wikidata.js?v=20261109"></script>
+<script src="choses.js?v=20261109"></script>
+<script src="oeuvres.js?v=20261109"></script>
+<script src="oeuvres-data.js?v=20261109"></script>
+<script src="comprendre.js?v=20261109"></script>
 <script>
 /* ---------- Données ---------- */
 function applyTags(t, tags, implique) {
@@ -1076,6 +1076,7 @@ const medal = c => `<div class="medal-wrap"><div class="medal" id="medal" style=
 
 function say(text) {
   const b = $("bubble");
+  if (b.textContent === text && b.style.visibility === (text ? "" : "hidden")) return;   // même phrase : pas de rebond
   b.textContent = text;
   b.style.visibility = text ? "" : "hidden";   // pas de bulle vide quand le Devin n'a rien à dire
   b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop");
@@ -1103,6 +1104,7 @@ function typeInto(el, text) {
   }, 12);
 }
 
+let lastScreen = null;
 function render() {
   const card = $("card");
   clearInterval(typer); clearInterval(tickerTimer);
@@ -1234,7 +1236,11 @@ function render() {
     say("Merci ! Je ne l'oublierai pas.");
   }
   card.innerHTML = html;
-  card.classList.remove("fade", "busy"); void card.offsetWidth; card.classList.add("fade");
+  // le fondu d'apparition seulement quand on change d'écran (ou de question du Devin), jamais sur un simple clic
+  const fresh = screen !== lastScreen || !GAMES[screen];
+  lastScreen = screen;
+  card.classList.remove("busy");
+  if (fresh) { card.classList.remove("fade"); void card.offsetWidth; card.classList.add("fade"); }
   if (screen === "question") typeInto($("q"), QS[current]);
   if (screen === "intro") startTicker();
   if (screen === "reverse") updateReverse(false);
@@ -1643,10 +1649,10 @@ renderSound();
 render();
 requestAnimationFrame(loop);
 </script>
-<script src="jeux.js?v=20261108"></script>
-<script src="arcade.js?v=20261108"></script>
-<script src="duel.js?v=20261108"></script>
-<script src="echecs.js?v=20261108"></script>
-<script src="logique.js?v=20261108"></script>
+<script src="jeux.js?v=20261109"></script>
+<script src="arcade.js?v=20261109"></script>
+<script src="duel.js?v=20261109"></script>
+<script src="echecs.js?v=20261109"></script>
+<script src="logique.js?v=20261109"></script>
 </body>
 </html>

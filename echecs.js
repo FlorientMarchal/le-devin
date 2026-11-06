@@ -209,7 +209,7 @@ function playerMove(m) {
   game.over = chessStatus();
   if (game.over) return finishChess();
   game.thinking = true;
-  render();
+  chessPaint();
   // laisse l'écran se mettre à jour avant que le Devin réfléchisse
   setTimeout(() => {
     if (screen !== "echecs" || !game || game.kind !== "echecs") return;
@@ -221,7 +221,7 @@ function playerMove(m) {
     game.over = chessStatus();
     if (game.over) return finishChess();
     orb.mood = inCheck(game.st, "w") ? "happy" : "sure";
-    render();
+    chessPaint();
   }, 60);
 }
 function finishChess() {
@@ -240,28 +240,52 @@ function clickSquare(sq) {
     if (m) return playerMove(m);
   }
   game.sel = p && isWhite(p) ? (game.sel === sq ? -1 : sq) : -1;
-  render();
+  chessPaint();
+}
+// ce qu'affiche une case, et ses repères (sélection, coups possibles, dernier coup, roi en échec)
+const pieceHtml = p => (p ? `<span class="pc ${isWhite(p) ? "w" : "b"}">${GLYPH[p.toLowerCase()]}︎</span>` : "");
+function squareView(sq, targets, check) {
+  const p = game.st.board[sq], dark = ((sq >> 3) + (sq & 7)) % 2 === 1;
+  const cls = ["sq", dark ? "d" : "l", sq === game.sel ? "sel" : "", targets.includes(sq) ? (p ? "cap" : "dot") : "",
+    game.last && (sq === game.last.from || sq === game.last.to) ? "last" : "", check && p === "K" ? "chk" : ""].join(" ");
+  return { cls, p: p || "", label: sqName(sq) + (p ? " " + NAMES[p.toLowerCase()] + (isWhite(p) ? " blanc" : " noir") : "") };
+}
+function chessTexts() {
+  const st = game.st, check = !game.over && inCheck(st, st.turn);
+  const status = game.over === "won" ? "Échec et mat : tu as battu le Devin !" : game.over === "lost" ? "Échec et mat : le Devin gagne." : game.over === "draw" ? "Partie nulle (pat)." :
+    game.thinking ? "Le Devin réfléchit…" : check ? "Échec ! Protège ton roi." : "À toi de jouer (blancs).";
+  const last = game.last && !game.thinking && st.turn === "w" && game.history.length ? `Le Devin a joué ${NAMES[game.last.piece.toLowerCase()]} ${sqName(game.last.from)}–${sqName(game.last.to)}.` : "";
+  return { check, status, last };
+}
+const chessTargets = () => (game.sel >= 0 ? legalMoves(game.st).filter(m => m.from === game.sel).map(m => m.to) : []);
+// met à jour l'échiquier sur place, sans le reconstruire (seules les cases qui changent sont touchées)
+function chessPaint() {
+  if (game.over) return render();
+  const { check, status, last } = chessTexts(), targets = chessTargets();
+  document.querySelectorAll(".sq").forEach(b => {
+    const v = squareView(+b.dataset.sq, targets, check);
+    if (b.className !== v.cls) b.className = v.cls;
+    if (b.dataset.p !== v.p) { b.dataset.p = v.p; b.innerHTML = pieceHtml(v.p); b.setAttribute("aria-label", v.label); }
+  });
+  const st = $("chStatus"); st.textContent = status; st.classList.toggle("warn", check);
+  $("chLast").textContent = last;
+  const u = $("chUndo"); if (u) u.disabled = !game.history.length || game.thinking;
+  say(game.thinking ? "Hmm…" : check ? "Échec !" : "");
 }
 GAMES.echecs = {
   html() {
-    const st = game.st, targets = game.sel >= 0 ? legalMoves(st).filter(m => m.from === game.sel).map(m => m.to) : [];
-    const check = !game.over && inCheck(st, st.turn);
-    const status = game.over === "won" ? "Échec et mat : tu as battu le Devin !" : game.over === "lost" ? "Échec et mat : le Devin gagne." : game.over === "draw" ? "Partie nulle (pat)." :
-      game.thinking ? "Le Devin réfléchit…" : check ? "Échec ! Protège ton roi." : "À toi de jouer (blancs).";
+    const { check, status, last } = chessTexts(), targets = chessTargets();
     say(game.over === "won" ? "Bravo… je n'ai rien vu venir." : game.over === "lost" ? "Échec et mat !" : game.thinking ? "Hmm…" : check ? "Échec !" : "");
-    const lastTxt = game.last && !game.thinking && st.turn === "w" && game.history.length ? `Le Devin a joué ${NAMES[game.last.piece.toLowerCase()]} ${sqName(game.last.from)}–${sqName(game.last.to)}.` : "";
     return `
       <span class="eyebrow">Échecs · niveau ${game.level}</span>
-      <p class="chess-status ${check ? "warn" : ""}">${status}</p>
-      <div class="chessboard" role="grid" aria-label="Échiquier">${st.board.map((p, sq) => {
-        const dark = ((sq >> 3) + (sq & 7)) % 2 === 1;
-        const cls = [dark ? "d" : "l", sq === game.sel ? "sel" : "", targets.includes(sq) ? (p ? "cap" : "dot") : "",
-          game.last && (sq === game.last.from || sq === game.last.to) ? "last" : "", check && p === "K" ? "chk" : ""].join(" ");
-        return `<button class="sq ${cls}" type="button" data-sq="${sq}" aria-label="${sqName(sq)}${p ? " " + NAMES[p.toLowerCase()] + (isWhite(p) ? " blanc" : " noir") : ""}">${p ? `<span class="pc ${isWhite(p) ? "w" : "b"}">${GLYPH[p.toLowerCase()]}︎</span>` : ""}</button>`;
+      <p class="chess-status ${check ? "warn" : ""}" id="chStatus" aria-live="polite">${status}</p>
+      <div class="chessboard" role="grid" aria-label="Échiquier">${game.st.board.map((_, sq) => {
+        const v = squareView(sq, targets, check);
+        return `<button class="${v.cls}" type="button" data-sq="${sq}" data-p="${v.p}" aria-label="${v.label}">${pieceHtml(v.p)}</button>`;
       }).join("")}</div>
-      ${lastTxt ? `<p class="hint-line">${lastTxt}</p>` : ""}
+      <p class="hint-line" id="chLast">${last}</p>
       <div class="row">
-        ${game.over ? `<button class="btn primary big" type="button" data-act="again">Nouvelle partie</button>` : `<button class="btn ghost" type="button" data-act="undo" ${game.history.length && !game.thinking ? "" : "disabled"}>Annuler mon coup</button>`}
+        ${game.over ? `<button class="btn primary big" type="button" data-act="again">Nouvelle partie</button>` : `<button class="btn ghost" type="button" id="chUndo" data-act="undo" ${game.history.length && !game.thinking ? "" : "disabled"}>Annuler mon coup</button>`}
         <label class="level">Niveau
           <select id="chessLevel">${Object.keys(LEVELS).map(l => `<option value="${l}" ${l === game.level ? "selected" : ""}>${l}</option>`).join("")}</select>
         </label>
@@ -270,14 +294,14 @@ GAMES.echecs = {
   after() {
     document.querySelectorAll(".sq").forEach(b => b.onclick = () => clickSquare(+b.dataset.sq));
     const sel = $("chessLevel");
-    if (sel) sel.onchange = () => { mem.chessLevel = sel.value; saveMem(); game.level = sel.value; render(); };
+    if (sel) sel.onchange = () => { mem.chessLevel = sel.value; saveMem(); game.level = sel.value; document.querySelector("#card .eyebrow").textContent = `Échecs · niveau ${game.level}`; };
   },
   act: {
     again: () => newChess(),
     undo: () => {
       if (!game.history.length || game.thinking) return;
       game.st = game.history.pop(); game.last = null; game.sel = -1; game.over = null;
-      render();
+      chessPaint();
     }
   }
 };

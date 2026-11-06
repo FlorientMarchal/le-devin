@@ -134,6 +134,17 @@ function nextChrono() {
   screen = "chrono";
   render();
 }
+// numéros posés sur les cartes et boutons, mis à jour sur place
+function chronoPaint() {
+  document.querySelectorAll(".ccard").forEach(b => {
+    const pos = game.order.indexOf(b.dataset.n);
+    b.classList.toggle("set", pos >= 0);
+    b.querySelector(".num").textContent = pos >= 0 ? pos + 1 : "";
+  });
+  const check = document.querySelector('[data-act="check"]'), reset = document.querySelector('[data-act="reset"]');
+  if (check) check.disabled = game.order.length < CHRONO_CARDS;
+  if (reset) reset.disabled = !game.order.length;
+}
 GAMES.chrono = {
   html() {
     const sorted = game.cards.slice().sort((a, b) => a.year - b.year);
@@ -158,11 +169,11 @@ GAMES.chrono = {
       const n = b.dataset.n, k = game.order.indexOf(n);
       if (k >= 0) game.order.splice(k, 1); else game.order.push(n);
       ping(400 + game.order.length * 80, "sine", 0.1);
-      render();
+      chronoPaint();
     });
   },
   act: {
-    reset: () => { game.order = []; render(); },
+    reset: () => { game.order = []; chronoPaint(); },
     check: () => {
       const sorted = game.cards.slice().sort((a, b) => a.year - b.year);
       game.last = game.order.filter((n, k) => sorted[k].name === n).length;
@@ -219,25 +230,41 @@ function penduLetter(L) {
     if (game.misses >= PENDU_LIVES) { game.done = "lose"; sfx("lose"); }
   }
   orb.conf = 1 - game.misses / PENDU_LIVES;
-  render();
+  // la manche continue : seules les pièces qui changent sont mises à jour ; elle se termine : on affiche la suite
+  if (game.done) render(); else penduPaint(L);
+}
+// le mot (cases et lettres trouvées) et les essais restants
+function penduWord() {
+  return [...game.item.word].map(ch => {
+    const u = plainUpper(ch);
+    if (!/[A-Z]/.test(u)) return ch === " " ? '<span class="gap"></span>' : `<span class="sym">${esc(ch)}</span>`;
+    const shown = game.letters.has(u) || game.done;
+    return `<span class="slot ${shown ? "on" : ""} ${game.done === "lose" && !game.letters.has(u) ? "missed" : ""}">${shown ? esc(ch.toUpperCase()) : ""}</span>`;
+  }).join("");
+}
+const penduLives = () => Array.from({ length: PENDU_LIVES }, (_, k) => `<i class="${k < PENDU_LIVES - game.misses ? "on" : ""}"></i>`).join("");
+const penduHint = () => (game.misses >= 4 && game.item.hint ? `Indice : « ${esc(game.item.hint)} »` : "");
+// met à jour le mot, les essais et la touche jouée sur place
+function penduPaint(L) {
+  $("pdWord").innerHTML = penduWord();
+  $("pdLives").innerHTML = penduLives();
+  $("pdLives").setAttribute("aria-label", `${PENDU_LIVES - game.misses} essais restants`);
+  $("pdHint").innerHTML = penduHint();
+  const k = document.querySelector(`.key[data-l="${L}"]`);
+  if (k) { k.disabled = true; k.classList.add(plainUpper(game.item.word).includes(L) ? "good" : "bad"); }
+  say(game.misses >= PENDU_LIVES - 2 ? "Attention, ma lumière faiblit…" : "");
 }
 GAMES.pendu = {
   html() {
-    const word = [...game.item.word].map(ch => {
-      const u = plainUpper(ch);
-      if (!/[A-Z]/.test(u)) return ch === " " ? '<span class="gap"></span>' : `<span class="sym">${esc(ch)}</span>`;
-      const shown = game.letters.has(u) || game.done;
-      return `<span class="slot ${shown ? "on" : ""} ${game.done === "lose" && !game.letters.has(u) ? "missed" : ""}">${shown ? esc(ch.toUpperCase()) : ""}</span>`;
-    }).join("");
-    const lives = Array.from({ length: PENDU_LIVES }, (_, k) => `<i class="${k < PENDU_LIVES - game.misses ? "on" : ""}"></i>`).join("");
+    const word = penduWord(), lives = penduLives();
     if (!game.done) say(game.misses === 0 && !game.letters.size ? "Trouve le nom caché, lettre par lettre." : game.misses >= PENDU_LIVES - 2 ? "Attention, ma lumière faiblit…" : "");
     else say(game.done === "win" ? pick(["Bravo !", "Bien joué.", "Rien ne t'échappe."]) : "Perdu !");
     return `
       <span class="eyebrow">Série en cours : ${game.streak} mot${game.streak > 1 ? "s" : ""}</span>
       <span class="tag">${esc(game.item.kind)}</span>
-      <div class="word">${word}</div>
-      <div class="lives" aria-label="${PENDU_LIVES - game.misses} essais restants">${lives}</div>
-      ${!game.done && game.misses >= 4 && game.item.hint ? `<p class="lede">Indice : « ${esc(game.item.hint)} »</p>` : ""}
+      <div class="word" id="pdWord">${word}</div>
+      <div class="lives" id="pdLives" aria-label="${PENDU_LIVES - game.misses} essais restants">${lives}</div>
+      <p class="lede" id="pdHint">${game.done ? "" : penduHint()}</p>
       ${game.done ? `<div class="row"><button class="btn primary big" type="button" data-act="${game.done === "win" ? "next" : "end"}">${game.done === "win" ? "Mot suivant" : "Voir mon score"}</button></div>`
         : `<div class="keys">${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(L => {
             const used = game.letters.has(L), good = used && plainUpper(game.item.word).includes(L);
